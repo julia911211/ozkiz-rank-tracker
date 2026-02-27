@@ -1,0 +1,74 @@
+=== Keyword: 유치원실내화 | Brand: 오즈키즈 ===
+{
+  "keyword": "유치원실내화",
+  "status": "success",
+  "total_items_found": 40,
+  "target_items": [
+    {
+      "title": "오즈키즈 유아실내화 초등 학교 실내화 유치원 학생 어린이 어린이집",
+      "link": "https://smartstore.naver.com/main/products/7120281092",
+      "mall": "오즈키즈",
+      "rank": 5,
+      "is_ad": false
+    },
+    {
+      "title": "오즈키즈 유치원실내화 초등 학생 화이트 실내화 학교 유아 아동 꾸꾸",
+      "link": "https://smartstore.naver.com/main/products/4792967332",
+      "mall": "오즈키즈",
+      "rank": 6,
+      "is_ad": false
+    },
+    {
+      "title": "오즈키즈 로미리본 여아 유아 아동 신학기 실내화 슬립온 150-220",
+      "link": "https://search.shopping.naver.com/catalog/33978211801",
+      "mall": "네이버",
+      "rank": 32,
+      "is_ad": false
+    }
+  ],
+  "top_rank": 5,
+  "top_title": "오즈키즈 유아실내화 초등 학교 실내화 유치원 학생 어린이 어린이집"
+}
+
+=== Keyword: 유치원실내화 | Brand: 오즈 키즈 ===
+{
+  "keyword": "유치원실내화",
+  "status": "success",
+  "total_items_found": 40,
+  "target_items": [],
+  "top_rank": "-",
+  "top_title": "검색결과 없음 (1~40위 이내)"
+}
+
+=== Keyword: 유치원 실내화 | Brand: 오즈키즈 ===
+{
+  "keyword": "유치원 실내화",
+  "status": "success",
+  "total_items_found": 40,
+  "target_items": [
+    {
+      "title": "오즈키즈 유아실내화 초등 학교 실내화 유치원 학생 어린이 어린이집",
+      "link": "https://smartstore.naver.com/main/products/7120281092",
+      "mall": "오즈키즈",
+      "rank": 5,
+      "is_ad": false
+    },
+    {
+      "title": "오즈키즈 유치원실내화 초등 학생 화이트 실내화 학교 유아 아동 꾸꾸",
+      "link": "https://smartstore.naver.com/main/products/4792967332",
+      "mall": "오즈키즈",
+      "rank": 6,
+      "is_ad": false
+    },
+    {
+      "title": "오즈키즈 로미리본 여아 유아 아동 신학기 실내화 슬립온 150-220",
+      "link": "https://search.shopping.naver.com/catalog/33978211801",
+      "mall": "네이버",
+      "rank": 32,
+      "is_ad": false
+    }
+  ],
+  "top_rank": 5,
+  "top_title": "오즈키즈 유아실내화 초등 학교 실내화 유치원 학생 어린이 어린이집"
+}
+

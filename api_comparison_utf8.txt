@@ -1,0 +1,35 @@
+﻿Fetching '유치원실내화' (Super Save expected at top)...
+{
+  "title": "초등 <b>실내화</b> 유아 <b>실내화</b> <b>유치원</b> 초등학교 아동 어린이집 미끄럼방지 학생 신학기",
+  "link": "https://smartstore.naver.com/main/products/5372232556",
+  "image": "https://shopping-phinf.pstatic.net/main_8291672/82916725690.23.jpg",
+  "lprice": "3400",
+  "hprice": "",
+  "mallName": "알파슈",
+  "productId": "82916725690",
+  "productType": "2",
+  "brand": "",
+  "maker": "알파슈",
+  "category1": "출산/육아",
+  "category2": "유아동잡화",
+  "category3": "신발",
+  "category4": "실내화"
+}
+
+Fetching '유아발레슈즈' (Pure organic 1st expected at top)...
+{
+  "title": "오즈키즈 <b>유아발레슈즈</b> 여아 발레슈즈 아기 토슈즈",
+  "link": "https://smartstore.naver.com/main/products/9275285641",
+  "image": "https://shopping-phinf.pstatic.net/main_8681978/86819785964.2.jpg",
+  "lprice": "14900",
+  "hprice": "",
+  "mallName": "오즈키즈",
+  "productId": "86819785964",
+  "productType": "2",
+  "brand": "오즈키즈",
+  "maker": "오즈키즈",
+  "category1": "패션잡화",
+  "category2": "여성신발",
+  "category3": "기능화",
+  "category4": "댄스화"
+}

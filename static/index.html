@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>네이버 쇼핑 랭킹 트래커 | 오즈키즈</title>
+    <!-- 구글 폰트 적용 (프리미엄 폰트: Inter 및 Pretendard 느낌) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- 사이드바 / 헤더 부분 -->
+        <header class="header">
+            <div class="logo">
+                <span class="highlight">Ozkiz</span> Rank Tracker
+            </div>
+            <p class="subtitle">네이버 쇼핑 키워드 실시간 순위 조회 매크로</p>
+        </header>
+
+        <main class="main-content">
+            <!-- 컨트롤 패널 -->
+            <section class="control-panel glass-panel">
+                <div class="input-group">
+                    <label for="keywords">검색 키워드 (한 줄에 하나씩)</label>
+                    <textarea id="keywords" placeholder="유치원실내화&#10;아기신발&#10;..."></textarea>
+                </div>
+                <div class="input-group">
+                    <label for="superSaveKeywords" style="display: flex; align-items: center; gap: 8px;">
+                        슈퍼적립 설정 (상품명 핵심어)
+                        <span class="save-badge">저장됨</span>
+                    </label>
+                    <textarea id="superSaveKeywords" placeholder="오즈키즈 유아실내화&#10;오즈키즈 아기 신발&#10;..."
+                        style="height: 60px;"></textarea>
+                    <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 5px;">
+                        이곳에 입력한 글자가 포함된 제품만 '슈퍼적립' 마크를 달고 1위로 집계됩니다.<br>
+                        (한 번만 입력하면 브라우저가 기억하므로 매달 바뀔 때만 수정해 주시면 됩니다.)
+                    </small>
+                </div>
+
+                <div class="input-group">
+                    <label for="brandInput">타겟 브랜드명 (검색결과에서 찾을 이름)</label>
+                    <input type="text" id="brandInput" value="오즈키즈">
+                </div>
+
+                <button id="startBtn" class="primary-btn">
+                    <span class="btn-icon">🚀</span> 랭킹 스캔 시작
+                </button>
+            </section>
+
+            <!-- 상태 및 진행 바 -->
+            <section class="progress-section hidden" id="progressSection">
+                <div class="status-text">
+                    <span id="currentStatus">대기 중...</span>
+                    <span id="progressCount">0 / 0</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+            </section>
+
+            <!-- 결과 테이블 영역 -->
+            <section class="results-panel glass-panel">
+                <div class="panel-header">
+                    <h2>스캔 결과</h2>
+                    <button id="exportCsvBtn" class="secondary-btn" disabled>CSV 다운로드</button>
+                </div>
+                <div class="table-container">
+                    <table id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th style="min-width: 120px;">키워드</th>
+                                <th>1순위 상품</th>
+                                <th>2순위 상품</th>
+                                <th>3순위 상품</th>
+                                <th>4순위 상품</th>
+                                <th>5순위 상품</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsBody">
+                            <tr class="empty-row">
+                                <td colspan="6">아직 조회된 결과가 없습니다.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
