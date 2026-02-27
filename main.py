@@ -1,4 +1,9 @@
 import os
+import uvicorn
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from scraper import get_naver_shopping_rank
 
 app = FastAPI()
