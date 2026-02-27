@@ -1,18 +1,19 @@
-import uvicorn
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
+import os
 from scraper import get_naver_shopping_rank
 
 app = FastAPI()
 
-# 프론트엔드 정적 파일 서빙
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# 절대 경로 설정을 위한 BASE_DIR 정의
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+# 프론트엔드 정적 파일 서빙 (절대 경로 사용)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/")
 async def read_index():
-    return FileResponse("static/index.html")
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    return FileResponse(index_path)
 
 class SingleSearchRequest(BaseModel):
     keyword: str
