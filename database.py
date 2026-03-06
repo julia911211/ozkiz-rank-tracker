@@ -43,11 +43,14 @@ def save_rank_to_db(keyword: str, rank_display: str, rank_value: int, title: str
     finally:
         db.close()
 
-def get_latest_rank(keyword: str):
+def get_latest_rank(keyword: str, title: str):
     db = SessionLocal()
     try:
-        # 가장 최근 기록 (현재 검색 제외를 위해 1분 전 데이터까지만 조회할 수도 있으나 로직상 검색 전 호출됨)
-        result = db.query(RankHistory).filter(RankHistory.keyword == keyword).order_by(RankHistory.created_at.desc()).first()
+        # 특정 키워드의 특정 상품에 대한 가장 최근 기록 조회
+        result = db.query(RankHistory).filter(
+            RankHistory.keyword == keyword,
+            RankHistory.product_title == title
+        ).order_by(RankHistory.created_at.desc()).first()
         return result
     finally:
         db.close()

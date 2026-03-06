@@ -450,16 +450,61 @@ td {
     color: var(--text-secondary);
 }
 
-/* History Table Styles */
-#historyTable th,
-#historyTable td {
-    text-align: center;
-    padding: 1.25rem 1rem;
+/* Grid History Styles */
+.history-grid-container {
+    overflow-x: auto;
+    margin-top: 1rem;
+    border-radius: 12px;
 }
 
-.history-date {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
+#historyTable th {
+    white-space: nowrap;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.grid-product-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.grid-product-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.grid-product-title {
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-align: left;
+}
+
+.rank-cell-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.rank-value-text {
+    font-weight: 700;
+}
+
+.rank-new-badge {
+    background: #f59e0b;
+    color: white;
+    font-size: 0.6rem;
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-weight: 800;
 }
 
 @keyframes fadeIn {

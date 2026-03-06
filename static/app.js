@@ -43,37 +43,85 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- History Loading ---
+    // --- History Loading (Grid View) ---
     async function loadHistory() {
-        historyBody.innerHTML = '<tr class="empty-row"><td colspan="4">데이터를 불러오는 중...</td></tr>';
+        historyBody.innerHTML = '<tr class="empty-row"><td colspan="2">데이터를 불러오는 중...</td></tr>';
         try {
-            const response = await fetch('/api/get_history');
+            const response = await fetch('/api/get_history_grid');
             const data = await response.json();
-            renderHistory(data);
+            renderHistoryGrid(data);
         } catch (error) {
             console.error('History Error:', error);
-            historyBody.innerHTML = '<tr class="empty-row"><td colspan="4" style="color: var(--danger);">히스토리를 불러오지 못했습니다.</td></tr>';
+            historyBody.innerHTML = '<tr class="empty-row"><td colspan="2" style="color: var(--danger);">히스토리를 불러오지 못했습니다.</td></tr>';
         }
     }
 
-    function renderHistory(data) {
-        if (!data || data.length === 0) {
-            historyBody.innerHTML = '<tr class="empty-row"><td colspan="4">최근 3개월간 저장된 기록이 없습니다.</td></tr>';
+    function renderHistoryGrid(data) {
+        const { dates, rows } = data;
+        const headerRow = document.getElementById('historyHeaderRow');
+
+        // 1. 헤더 초기화 및 날짜 추가
+        headerRow.innerHTML = `
+            <th style="min-width: 120px;">키워드</th>
+            <th style="min-width: 250px;">연결 상품명</th>
+        `;
+        dates.forEach(date => {
+            const th = document.createElement('th');
+            th.style.minWidth = '100px';
+            th.textContent = date.split('-').slice(1).join('/'); // MM/DD 형식
+            headerRow.appendChild(th);
+        });
+
+        if (!rows || rows.length === 0) {
+            historyBody.innerHTML = `<tr class="empty-row"><td colspan="${dates.length + 2}">저장된 기록이 없습니다.</td></tr>`;
             return;
         }
 
+        // 2. 바디 렌더링
         historyBody.innerHTML = '';
-        data.forEach(item => {
+        rows.forEach(row => {
             const tr = document.createElement('tr');
-            const date = new Date(item.created_at);
-            const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
+            // 키워드 & 상품 정보 (고정 컬럼)
             tr.innerHTML = `
-                <td class="history-date">${dateStr}</td>
-                <td><strong>${item.keyword}</strong></td>
-                <td><span class="rank-badge rank-top">${item.rank_display}</span></td>
-                <td style="text-align: left; font-size: 0.85rem;">${item.product_title}</td>
+                <td><strong>${row.keyword}</strong></td>
+                <td>
+                    <div class="grid-product-cell">
+                        <img src="${row.image}" class="grid-product-img" onerror="this.src='https://via.placeholder.com/40'">
+                        <a href="${row.link}" target="_blank" class="grid-product-title" title="${row.title}">
+                            ${row.title}
+                        </a>
+                    </div>
+                </td>
             `;
+
+            // 날짜별 순위 (동적 컬럼)
+            row.history.forEach(h => {
+                const td = document.createElement('td');
+                td.style.textAlign = 'center';
+
+                if (h.rank === '-') {
+                    td.innerHTML = `<span style="color: var(--text-secondary);">-</span>`;
+                } else {
+                    let diffHtml = '';
+                    if (h.is_new) {
+                        diffHtml = `<span class="rank-new-badge">NEW</span>`;
+                    } else if (h.diff !== null) {
+                        if (h.diff > 0) diffHtml = `<span class="rank-diff diff-up" style="margin:0; font-size:0.7rem;">▲${h.diff}</span>`;
+                        else if (h.diff < 0) diffHtml = `<span class="rank-diff diff-down" style="margin:0; font-size:0.7rem;">▼${Math.abs(h.diff)}</span>`;
+                        else diffHtml = `<span class="rank-diff diff-stable" style="margin:0; font-size:0.7rem;">-</span>`;
+                    }
+
+                    td.innerHTML = `
+                        <div class="rank-cell-content">
+                            <span class="rank-value-text">${h.rank}</span>
+                            ${diffHtml}
+                        </div>
+                    `;
+                }
+                tr.appendChild(td);
+            });
+
             historyBody.appendChild(tr);
         });
     }
