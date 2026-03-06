@@ -24,6 +24,15 @@ class RankHistory(Base):
     product_image = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class TrackedKeyword(Base):
+    __tablename__ = "tracked_keywords"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    keyword = Column(String, unique=True, index=True)
+    target_brand = Column(String, default="오즈키즈")
+    is_active = Column(Integer, default=1) # 1: 활성, 0: 비활성
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 # 테이블 생성
 Base.metadata.create_all(bind=engine)
 
@@ -46,7 +55,6 @@ def save_rank_to_db(keyword: str, rank_display: str, rank_value: int, title: str
 def get_latest_rank(keyword: str, title: str):
     db = SessionLocal()
     try:
-        # 특정 키워드의 특정 상품에 대한 가장 최근 기록 조회
         result = db.query(RankHistory).filter(
             RankHistory.keyword == keyword,
             RankHistory.product_title == title
@@ -60,5 +68,37 @@ def get_all_history():
     try:
         results = db.query(RankHistory).order_by(RankHistory.created_at.desc()).all()
         return results
+    finally:
+        db.close()
+
+# --- 키워드 관리 함수 ---
+def get_all_tracked_keywords():
+    db = SessionLocal()
+    try:
+        return db.query(TrackedKeyword).filter(TrackedKeyword.is_active == 1).all()
+    finally:
+        db.close()
+
+def add_tracked_keyword(keyword: str, target_brand: str = "오즈키즈"):
+    db = SessionLocal()
+    try:
+        existing = db.query(TrackedKeyword).filter(TrackedKeyword.keyword == keyword).first()
+        if existing:
+            existing.is_active = 1
+            existing.target_brand = target_brand
+        else:
+            new_kw = TrackedKeyword(keyword=keyword, target_brand=target_brand)
+            db.add(new_kw)
+        db.commit()
+    finally:
+        db.close()
+
+def remove_tracked_keyword(keyword: str):
+    db = SessionLocal()
+    try:
+        kw = db.query(TrackedKeyword).filter(TrackedKeyword.keyword == keyword).first()
+        if kw:
+            kw.is_active = 0
+            db.commit()
     finally:
         db.close()

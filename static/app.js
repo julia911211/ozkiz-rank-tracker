@@ -128,6 +128,84 @@ document.addEventListener('DOMContentLoaded', () => {
 
     refreshHistoryBtn.addEventListener('click', loadHistory);
 
+    // --- Tracked Keywords Management ---
+    const trackedKeywordsList = document.getElementById('trackedKeywordsList');
+    const saveKeywordsBtn = document.getElementById('saveKeywordsBtn');
+
+    async function loadTrackedKeywords() {
+        try {
+            const response = await fetch('/api/keywords');
+            const data = await response.json();
+            renderTrackedKeywords(data);
+        } catch (error) {
+            console.error('Load Keywords Error:', error);
+        }
+    }
+
+    function renderTrackedKeywords(keywords) {
+        if (!keywords || keywords.length === 0) {
+            trackedKeywordsList.innerHTML = '<span class="no-keywords">등록된 자동 추적 키워드가 없습니다.</span>';
+            return;
+        }
+
+        trackedKeywordsList.innerHTML = '';
+        keywords.forEach(kw => {
+            const span = document.createElement('span');
+            span.className = 'keyword-tag';
+            span.innerHTML = `
+                ${kw.keyword}
+                <span class="remove-kw" data-id="${kw.id}" data-keyword="${kw.keyword}">×</span>
+            `;
+            trackedKeywordsList.appendChild(span);
+        });
+
+        // 삭제 이벤트
+        document.querySelectorAll('.remove-kw').forEach(btn => {
+            btn.onclick = async (e) => {
+                const kw = e.target.getAttribute('data-keyword');
+                if (confirm(`'${kw}' 키워드를 자동 추적 목록에서 삭제할까요?`)) {
+                    await updateMasterKeywords(keywords.filter(k => k.keyword !== kw).map(k => k.keyword));
+                }
+            };
+        });
+    }
+
+    async function updateMasterKeywords(keywordArray) {
+        try {
+            const response = await fetch('/api/keywords', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    keywords: keywordArray,
+                    target_brand: brandInput.value
+                })
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+                loadTrackedKeywords();
+            }
+        } catch (error) {
+            alert('키워드 저장 실패');
+        }
+    }
+
+    saveKeywordsBtn.addEventListener('click', async () => {
+        const keywordsTxt = keywordInput.value;
+        const keywords = keywordsTxt.split(/[\n,]+/).map(k => k.trim()).filter(k => k);
+        if (keywords.length === 0) {
+            alert('입력창에 키워드를 먼저 입력해주세요.');
+            return;
+        }
+
+        if (confirm(`${keywords.length}개의 키워드를 마스터 목록으로 등록하고 매일 자동 추적하시겠습니까?`)) {
+            await updateMasterKeywords(keywords);
+            alert('마스터 목록에 저장되었습니다. 이제 매일 새벽 자동으로 스캔됩니다!');
+        }
+    });
+
+    // 초기 로드
+    loadTrackedKeywords();
+
     // --- Existing Scan Logic ---
     const saved = localStorage.getItem('superSaveKeywords_v2');
     if (saved) superSaveInput.value = saved;
