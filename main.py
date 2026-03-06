@@ -57,7 +57,7 @@ def search_single(req: SingleSearchRequest):
             )
             
         # 프론트엔드 호환성을 위해 상위 1개 정보 result 루트에 유지
-        if result["target_items"]:
+        if result.get("target_items"):
             result["rank_diff"] = result["target_items"][0].get("rank_diff")
             result["prev_rank"] = result["target_items"][0].get("prev_rank")
     

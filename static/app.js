@@ -72,8 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
             headerRow.appendChild(th);
         });
 
-        if (!rows || rows.length === 0) {
-            historyBody.innerHTML = `<tr class="empty-row"><td colspan="${dates.length + 2}">저장된 기록이 없습니다.</td></tr>`;
+        if (!dates || dates.length === 0 || !rows || rows.length === 0) {
+            historyBody.innerHTML = `<tr class="empty-row"><td colspan="2">저장된 기록이 없습니다. 먼저 스캔을 시작해 주세요.</td></tr>`;
             return;
         }
 
