@@ -203,6 +203,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Master List Accordion Toggle ---
+    const masterListToggle = document.getElementById('masterListToggle');
+    const masterListPanel = document.getElementById('masterListPanel');
+    const toggleIcon = document.getElementById('toggleIcon');
+
+    if (masterListToggle) {
+        masterListToggle.addEventListener('click', () => {
+            const isCollapsed = masterListPanel.classList.toggle('collapsed');
+            toggleIcon.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)';
+        });
+    }
+
     // 초기 로드
     loadTrackedKeywords();
 

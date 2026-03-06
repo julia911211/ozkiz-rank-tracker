@@ -464,20 +464,45 @@ tr:hover td {
     margin-bottom: 1rem;
 }
 
+.master-list-header {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    user-select: none;
+}
+
+.master-list-header label {
+    margin-bottom: 0;
+    cursor: pointer;
+}
+
+#toggleIcon {
+    font-size: 0.8rem;
+    transition: transform 0.3s ease;
+    color: var(--text-secondary);
+}
+
 .master-list-panel {
     background: #f8fafc;
     padding: 1rem;
     border-radius: 8px;
     margin-bottom: 2rem;
     border: 1px dashed #cbd5e1;
+    overflow: hidden;
+    transition: all 0.3s ease-in-out;
+    max-height: 1000px;
+    opacity: 1;
 }
 
-.master-list-panel label {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 700;
-    margin-bottom: 0.75rem;
-    color: var(--accent-color);
+.master-list-panel.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-bottom: 1rem;
+    opacity: 0;
+    border: none;
 }
 
 .keyword-tags {
