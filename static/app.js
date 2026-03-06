@@ -10,25 +10,90 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsBody = document.getElementById('resultsBody');
     const exportCsvBtn = document.getElementById('exportCsvBtn');
 
+    // Tab Elements
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const historyBody = document.getElementById('historyBody');
+    const refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
+
     let isRunning = false;
     let resultsData = [];
 
-    // Load saved Super Save keywords from LocalStorage
+    // --- Tab Switching Logic ---
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.getAttribute('data-tab');
+
+            // Toggle active class on buttons
+            tabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Toggle active class on contents
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === target) {
+                    content.classList.add('active');
+                }
+            });
+
+            // If history tab, load data
+            if (target === 'history-tab') {
+                loadHistory();
+            }
+        });
+    });
+
+    // --- History Loading ---
+    async function loadHistory() {
+        historyBody.innerHTML = '<tr class="empty-row"><td colspan="4">데이터를 불러오는 중...</td></tr>';
+        try {
+            const response = await fetch('/api/get_history');
+            const data = await response.json();
+            renderHistory(data);
+        } catch (error) {
+            console.error('History Error:', error);
+            historyBody.innerHTML = '<tr class="empty-row"><td colspan="4" style="color: var(--danger);">히스토리를 불러오지 못했습니다.</td></tr>';
+        }
+    }
+
+    function renderHistory(data) {
+        if (!data || data.length === 0) {
+            historyBody.innerHTML = '<tr class="empty-row"><td colspan="4">최근 3개월간 저장된 기록이 없습니다.</td></tr>';
+            return;
+        }
+
+        historyBody.innerHTML = '';
+        data.forEach(item => {
+            const tr = document.createElement('tr');
+            const date = new Date(item.created_at);
+            const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+            tr.innerHTML = `
+                <td class="history-date">${dateStr}</td>
+                <td><strong>${item.keyword}</strong></td>
+                <td><span class="rank-badge rank-top">${item.rank_display}</span></td>
+                <td style="text-align: left; font-size: 0.85rem;">${item.product_title}</td>
+            `;
+            historyBody.appendChild(tr);
+        });
+    }
+
+    refreshHistoryBtn.addEventListener('click', loadHistory);
+
+    // --- Existing Scan Logic ---
     const saved = localStorage.getItem('superSaveKeywords_v2');
     if (saved) superSaveInput.value = saved;
 
-    // Save to LocalStorage whenever modified
     superSaveInput.addEventListener('input', () => {
         localStorage.setItem('superSaveKeywords_v2', superSaveInput.value);
     });
 
-    // Use startBtn for the click event
     startBtn.addEventListener('click', async () => {
         await startApiScan();
     });
 
     async function startApiScan() {
-        if (isRunning) return; // Prevent multiple runs
+        if (isRunning) return;
 
         const keywordsTxt = keywordInput.value;
         const targetBrand = brandInput.value.trim();
@@ -43,14 +108,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 키워드 파싱 (줄바꿈 및 콤마 분리)
         const keywords = keywordsTxt.split(/[\n,]+/).map(k => k.trim()).filter(k => k);
         const superSaveKws = superSaveInput.value.split(/[\n,]+/).map(k => k.trim()).filter(k => k);
         const totalKeywords = keywords.length;
 
         if (totalKeywords === 0) return;
 
-        // UI 초기화
         isRunning = true;
         startBtn.disabled = true;
         startBtn.innerHTML = '<span class="btn-icon">⏳</span> 스캔 중...';
@@ -62,19 +125,15 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < totalKeywords; i++) {
             const kw = keywords[i];
 
-            // 프로그레스 바 업데이트
             const percent = Math.round(((i) / totalKeywords) * 100);
             progressBar.style.width = `${percent}%`;
             progressCount.textContent = `${i} / ${totalKeywords}`;
-            currentStatus.textContent = `'${kw}' 검색 중... (웹페이지 분석 중)`;
+            currentStatus.textContent = `'${kw}' 검색 및 최신 히스토리 분석 중...`;
 
             try {
-                // 백엔드 API 호출
                 const response = await fetch('/api/search_single', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         keyword: kw,
                         target_brand: targetBrand,
@@ -83,8 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 const data = await response.json();
-
-                // 테이블에 결과 추가
                 appendResultRow(data);
                 resultsData.push(data);
 
@@ -97,18 +154,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // 사람처럼 보이게 강제 딜레이 부여 (랜덤 2~4초)
             if (i < keywords.length - 1) {
-                currentStatus.textContent = `네이버 보안 우회 중... (대기 시간)`;
-                const delayStr = Math.floor(Math.random() * (4000 - 2000 + 1) + 2000);
+                currentStatus.textContent = `네이버 보안 우회 중... (안전한 검색 보장)`;
+                const delayStr = Math.floor(Math.random() * (3000 - 1500 + 1) + 1500);
                 await new Promise(r => setTimeout(r, delayStr));
             }
         }
 
-        // 스캔 완료
         progressBar.style.width = '100%';
         progressCount.textContent = `${keywords.length} / ${keywords.length}`;
-        currentStatus.textContent = '모든 키워드 스캔 완료!';
+        currentStatus.textContent = '모든 키워드 스캔 및 실시간 히스토리 업데이트 완료!';
 
         isRunning = false;
         startBtn.disabled = false;
@@ -119,12 +174,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function appendResultRow(data) {
         const tr = document.createElement('tr');
 
-        // 키워드 셀
         const keywordTd = document.createElement('td');
         keywordTd.innerHTML = `<strong>${data.keyword}</strong>`;
         tr.appendChild(keywordTd);
 
-        // 에러 상태인 경우
         if (data.status === 'error') {
             const errorTd = document.createElement('td');
             errorTd.setAttribute('colspan', '5');
@@ -134,7 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 성공 상태인데 아이템이 없는 경우
         if (!data.target_items || data.target_items.length === 0) {
             const emptyTd = document.createElement('td');
             emptyTd.setAttribute('colspan', '5');
@@ -144,20 +196,31 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 최대 5개의 상품 셀 생성
         for (let i = 0; i < 5; i++) {
             const td = document.createElement('td');
             const item = data.target_items[i];
 
             if (item) {
                 let rankClass = 'rank-low';
-
                 if (item.rank_display === '슈퍼적립') {
                     rankClass = 'rank-super';
                 } else {
                     const r = parseInt(item.rank);
                     if (r <= 5) rankClass = 'rank-top';
                     else if (r <= 20) rankClass = 'rank-mid';
+                }
+
+                // 순위 변동 표시 (1순위 상품에만 표시)
+                let diffHtml = '';
+                if (i === 0 && data.rank_diff !== undefined && data.rank_diff !== null) {
+                    const diff = data.rank_diff;
+                    if (diff > 0) {
+                        diffHtml = `<span class="rank-diff diff-up">▲ ${diff}</span>`;
+                    } else if (diff < 0) {
+                        diffHtml = `<span class="rank-diff diff-down">▼ ${Math.abs(diff)}</span>`;
+                    } else {
+                        diffHtml = `<span class="rank-diff diff-stable">-</span>`;
+                    }
                 }
 
                 td.innerHTML = `
@@ -170,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <a href="${item.link}" target="_blank" class="product-title" title="${item.title}">
                                 ${item.title}
                             </a>
-                            <div class="product-mall">${item.mall}</div>
+                            <div class="product-mall">${item.mall} ${diffHtml}</div>
                         </div>
                     </div>
                 `;
@@ -183,32 +246,32 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsBody.appendChild(tr);
     }
 
-    // CSV 다운로드 기능
     exportCsvBtn.addEventListener('click', () => {
         if (resultsData.length === 0) return;
 
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM 추가 (엑셀 한글 깨짐 방지)
-        csvContent += "키워드,최고순위,상품명,상품링크\n";
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+        csvContent += "키워드,최고순위,순위변동,상품명,상품링크\n";
 
         resultsData.forEach(row => {
             if (row.status === 'success') {
                 const keyword = `"${row.keyword}"`;
                 const topRank = row.top_rank;
+                const diff = row.rank_diff !== undefined && row.rank_diff !== null ? row.rank_diff : "신규";
                 const topTitle = `"${row.top_title.replace(/"/g, '""')}"`;
                 let link = "";
                 if (row.target_items && row.target_items.length > 0) {
                     link = `"${row.target_items[0].link}"`;
                 }
-                csvContent += `${keyword},${topRank},${topTitle},${link}\n`;
+                csvContent += `${keyword},${topRank},${diff},${topTitle},${link}\n`;
             } else {
-                csvContent += `"${row.keyword}","오류","${row.message}",""\n`;
+                csvContent += `"${row.keyword}","오류","-","${row.message}",""\n`;
             }
         });
 
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `쇼핑랭킹_결과_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute("download", `쇼핑랭킹_히스토리포함_${new Date().toISOString().split('T')[0]}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
