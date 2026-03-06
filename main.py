@@ -5,14 +5,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from scraper import get_naver_shopping_rank
-from database import save_rank_to_db, get_latest_rank, get_all_history_last_3_months, cleanup_old_data
+from database import save_rank_to_db, get_latest_rank, get_all_history
 
 app = FastAPI()
 
-# 앱 시작 시 오래된 데이터 정리 (최근 3개월 유지)
-@app.on_event("startup")
-async def startup_event():
-    cleanup_old_data()
 
 # 절대 경로 설정을 위한 BASE_DIR 정의
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -68,8 +64,7 @@ def search_single(req: SingleSearchRequest):
 
 @app.get("/api/get_history")
 def get_history():
-    history_data = get_all_history_last_3_months()
-    # 포맷팅: 날짜별/키워드별 가공 가능하지만 일단 원본 반환
+    history_data = get_all_history()
     return history_data
 
 if __name__ == "__main__":

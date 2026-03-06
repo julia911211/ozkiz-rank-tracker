@@ -52,20 +52,10 @@ def get_latest_rank(keyword: str):
     finally:
         db.close()
 
-def get_all_history_last_3_months():
+def get_all_history():
     db = SessionLocal()
     try:
-        three_months_ago = datetime.utcnow() - timedelta(days=90)
-        results = db.query(RankHistory).filter(RankHistory.created_at >= three_months_ago).order_by(RankHistory.created_at.desc()).all()
+        results = db.query(RankHistory).order_by(RankHistory.created_at.desc()).all()
         return results
-    finally:
-        db.close()
-
-def cleanup_old_data():
-    db = SessionLocal()
-    try:
-        three_months_ago = datetime.utcnow() - timedelta(days=90)
-        db.query(RankHistory).filter(RankHistory.created_at < three_months_ago).delete()
-        db.commit()
     finally:
         db.close()
