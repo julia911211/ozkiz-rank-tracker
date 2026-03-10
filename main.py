@@ -208,17 +208,17 @@ def ping():
 
 @app.get("/api/clean_tests")
 def clean_tests():
-    db = SessionLocal()
     try:
+        db = SessionLocal()
         del_hist = db.query(RankHistory).filter(RankHistory.keyword.like('%테스트%')).delete(synchronize_session=False)
         del_kw = db.query(TrackedKeyword).filter(TrackedKeyword.keyword.like('%테스트%')).delete(synchronize_session=False)
         db.commit()
+        db.close()
         return {"deleted_history": del_hist, "deleted_keywords": del_kw}
     except Exception as e:
-        db.rollback()
-        return {"error": str(e)}
-    finally:
-        db.close()
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
