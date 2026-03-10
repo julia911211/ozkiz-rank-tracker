@@ -14,13 +14,18 @@ from database import (
 
 app = FastAPI()
 
-# --- 자동 스케줄러 설정 ---
+# --- 자동 스케줄러 및 크론 API ---
 def daily_ranking_scan():
     print(f"[{datetime.now()}] 자동 데일리 스캔 시작...")
     keywords = get_all_tracked_keywords()
+    if not keywords:
+        print(" > 등록된 마스터 키워드가 없습니다.")
+        return
+        
     for kw_obj in keywords:
         try:
             print(f" > '{kw_obj.keyword}' 자동 검색 중...")
+            # 마스터 목록 저장 시 저장했던 target_brand 사용
             result = get_naver_shopping_rank(kw_obj.keyword, kw_obj.target_brand, [])
             
             if result["status"] == "success":
@@ -40,8 +45,23 @@ def daily_ranking_scan():
             print(f" !!! '{kw_obj.keyword}' 자동 검색 실패: {str(e)}")
     print(f"[{datetime.now()}] 자동 데일리 스캔 완료.")
 
+# 외부에서 호출 가능한 크론 전용 엔드포인트
+@app.get("/api/cron/scan")
+def cron_scan(key: str = None):
+    # 간단한 보안을 위해 환경변수에 설정된 CRON_SECRET 확인
+    secret = os.getenv("CRON_SECRET", "ozkiz_default_secret")
+    if key != secret:
+        return {"status": "error", "message": "Unauthorized"}
+        
+    # 백그라운드 태스크로 실행 (API 응답은 즉시 반환)
+    from fastapi import BackgroundTasks
+    def run_and_log():
+        daily_ranking_scan()
+        
+    return {"status": "success", "message": "Scan started in background"}
+
 scheduler = BackgroundScheduler()
-# 매일 새벽 2시에 실행
+# 내부 스케줄러 (서버가 깨어있을 때의 백업용)
 scheduler.add_job(daily_ranking_scan, 'cron', hour=2, minute=0)
 scheduler.start()
 
