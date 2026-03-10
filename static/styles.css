@@ -401,6 +401,19 @@ tr:hover td {
     background: #f8fafc;
 }
 
+#historyTable td {
+    border-bottom: 1px solid #f1f5f9;
+}
+
+#historyTable tr.keyword-separator td {
+    border-top: 2px solid #e2e8f0;
+}
+
+.keyword-cell {
+    vertical-align: top;
+    padding-top: 1.25rem !important;
+}
+
 .grid-product-cell {
     display: flex;
     align-items: center;
