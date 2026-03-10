@@ -123,9 +123,21 @@ def search_single(req: SingleSearchRequest):
 @app.get("/api/get_history_grid")
 def get_history_grid():
     history = get_all_history()
-    kws = get_all_tracked_keywords()
-    kw_order = {kw.keyword: kw.id for kw in kws}
     
+    # Establish original insertion order based on RankHistory ID
+    db = SessionLocal()
+    try:
+        from sqlalchemy import func
+        earliest_seen = db.query(RankHistory.keyword, func.min(RankHistory.id)).group_by(RankHistory.keyword).all()
+        kw_order = {kw: min_id for kw, min_id in earliest_seen}
+    finally:
+        db.close()
+        
+    kws = get_all_tracked_keywords()
+    for kw in kws:
+        if kw.keyword not in kw_order:
+            kw_order[kw.keyword] = 900000 + kw.id
+            
     dates = sorted(list(set(h.created_at.strftime("%Y-%m-%d") for h in history)), reverse=True)
     
     grid_data = {}
