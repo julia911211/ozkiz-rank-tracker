@@ -80,11 +80,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 1.5 행 데이터 정렬 로직 추가 (키워드 그룹화 및 최신 순위순)
+        // 1.5 행 데이터 정렬 로직 추가 (입력 순서 그룹화 및 최신 순위순)
         rows.sort((a, b) => {
-            // 먼저 키워드로 정렬 (가나다 순)
-            if (a.keyword < b.keyword) return -1;
-            if (a.keyword > b.keyword) return 1;
+            // 먼저 백엔드에서 전달받은 입력 순서(order_index)로 정렬
+            if (a.order_index !== b.order_index) {
+                return a.order_index - b.order_index;
+            }
 
             // 키워드가 같으면 최신 날짜(history[0])의 순위로 정렬
             const rankAStr = a.history && a.history.length > 0 ? a.history[0].rank : '-';

@@ -123,6 +123,9 @@ def search_single(req: SingleSearchRequest):
 @app.get("/api/get_history_grid")
 def get_history_grid():
     history = get_all_history()
+    kws = get_all_tracked_keywords()
+    kw_order = {kw.keyword: kw.id for kw in kws}
+    
     dates = sorted(list(set(h.created_at.strftime("%Y-%m-%d") for h in history)), reverse=True)
     
     grid_data = {}
@@ -140,7 +143,7 @@ def get_history_grid():
             }
             
     # Include tracked keywords that have no history yet
-    kws = get_all_tracked_keywords()
+
     for kw in kws:
         exists = any(key[0] == kw.keyword for key in grid_data.keys())
         if not exists:
@@ -178,7 +181,8 @@ def get_history_grid():
                 })
                 
         rows.append({
-            "keyword": keyword, "title": title, "image": image, "link": link, "history": history_list
+            "keyword": keyword, "title": title, "image": image, "link": link, "history": history_list,
+            "order_index": kw_order.get(keyword, 999999)
         })
         
     return {"dates": dates, "rows": rows}
