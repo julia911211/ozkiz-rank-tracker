@@ -77,6 +77,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // 1.5 행 데이터 정렬 로직 추가 (키워드 그룹화 및 최신 순위순)
+        rows.sort((a, b) => {
+            // 먼저 키워드로 정렬 (가나다 순)
+            if (a.keyword < b.keyword) return -1;
+            if (a.keyword > b.keyword) return 1;
+
+            // 키워드가 같으면 최신 날짜(history[0])의 순위로 정렬
+            const rankAStr = a.history && a.history.length > 0 ? a.history[0].rank : '-';
+            const rankBStr = b.history && b.history.length > 0 ? b.history[0].rank : '-';
+
+            const isRankANum = rankAStr !== '-';
+            const isRankBNum = rankBStr !== '-';
+
+            // 순위가 없는('-') 경우 뒤로 보냄
+            if (isRankANum && !isRankBNum) return -1;
+            if (!isRankANum && isRankBNum) return 1;
+            if (!isRankANum && !isRankBNum) return 0;
+
+            // 둘 다 숫자인 경우 오름차순 (1위가 위로)
+            return parseInt(rankAStr) - parseInt(rankBStr);
+        });
+
         // 2. 바디 렌더링
         historyBody.innerHTML = '';
         let lastKeyword = null;

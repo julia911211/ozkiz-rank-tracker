@@ -426,11 +426,12 @@ tr:hover td {
 }
 
 .grid-product-img {
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
     object-fit: cover;
     border: 1px solid #e2e8f0;
+    flex-shrink: 0;
 }
 
 .grid-product-title {
