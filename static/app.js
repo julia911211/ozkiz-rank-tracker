@@ -43,6 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Initial load for default active tab (history tab)
+    loadHistory();
+
     // --- History Loading (Grid View) ---
     async function loadHistory() {
         historyBody.innerHTML = '<tr class="empty-row"><td colspan="2">데이터를 불러오는 중...</td></tr>';

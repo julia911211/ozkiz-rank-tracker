@@ -23,11 +23,11 @@
         <main class="main-content">
             <!-- 탭 네비게이션 -->
             <nav class="tab-nav">
-                <button class="tab-btn active" data-tab="scan-tab">⚡ 실시간 스캔</button>
-                <button class="tab-btn" data-tab="history-tab">📅 순위 히스토리</button>
+                <button class="tab-btn" data-tab="scan-tab">⚡ 실시간 스캔</button>
+                <button class="tab-btn active" data-tab="history-tab">📅 순위 히스토리</button>
             </nav>
 
-            <div id="scan-tab" class="tab-content active">
+            <div id="scan-tab" class="tab-content">
                 <!-- 컨트롤 패널 -->
                 <section class="control-panel glass-panel">
                     <div class="input-group">
@@ -115,7 +115,7 @@
             </div>
 
             <!-- 순위 히스토리 탭 -->
-            <div id="history-tab" class="tab-content">
+            <div id="history-tab" class="tab-content active">
                 <section class="results-panel glass-panel">
                     <div class="panel-header">
                         <h2>키워드별 순위 누적 현황</h2>
@@ -142,7 +142,7 @@
         </main>
     </div>
 
-    <script src="/static/app.js?v=5"></script>
+    <script src="/static/app.js?v=6"></script>
 </body>
 
 </html>
