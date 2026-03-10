@@ -138,6 +138,14 @@ def get_history_grid():
                 "created_at": h.created_at.isoformat()
             }
             
+    # Include tracked keywords that have no history yet
+    kws = get_all_tracked_keywords()
+    for kw in kws:
+        exists = any(key[0] == kw.keyword for key in grid_data.keys())
+        if not exists:
+            dummy_key = (kw.keyword, "-", "", "")
+            grid_data[dummy_key] = {}
+            
     rows = []
     for key, history_map in grid_data.items():
         keyword, title, image, link = key
@@ -197,6 +205,20 @@ def update_keywords(req: dict):
 @app.get("/api/ping")
 def ping():
     return {"status": "alive", "time": datetime.now().isoformat()}
+
+@app.get("/api/clean_tests")
+def clean_tests():
+    db = SessionLocal()
+    try:
+        del_hist = db.query(RankHistory).filter(RankHistory.keyword.like('%테스트%')).delete(synchronize_session=False)
+        del_kw = db.query(TrackedKeyword).filter(TrackedKeyword.keyword.like('%테스트%')).delete(synchronize_session=False)
+        db.commit()
+        return {"deleted_history": del_hist, "deleted_keywords": del_kw}
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
