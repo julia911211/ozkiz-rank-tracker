@@ -414,6 +414,11 @@ tr:hover td {
     padding-top: 1.25rem !important;
 }
 
+.hidden-keyword {
+    visibility: hidden;
+    display: none;
+}
+
 .grid-product-cell {
     display: flex;
     align-items: center;

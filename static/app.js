@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // 키워드명 (중복 제거 로직)
-            const keywordDisplay = (row.keyword === lastKeyword) ? '' : `<strong>${row.keyword}</strong>`;
+            const keywordDisplay = (row.keyword === lastKeyword) ? '<span class="hidden-keyword">' + row.keyword + '</span>' : `<strong>${row.keyword}</strong>`;
             lastKeyword = row.keyword;
 
             // 키워드 & 상품 정보 (고정 컬럼)
