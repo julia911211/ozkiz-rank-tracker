@@ -79,12 +79,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. 바디 렌더링
         historyBody.innerHTML = '';
+        let lastKeyword = null;
+
         rows.forEach(row => {
             const tr = document.createElement('tr');
 
+            // 키워드가 바뀌는 시점에 구분선 추가를 위한 클래스
+            if (lastKeyword !== null && lastKeyword !== row.keyword) {
+                tr.classList.add('keyword-separator');
+            }
+
+            // 키워드명 (중복 제거 로직)
+            const keywordDisplay = (row.keyword === lastKeyword) ? '' : `<strong>${row.keyword}</strong>`;
+            lastKeyword = row.keyword;
+
             // 키워드 & 상품 정보 (고정 컬럼)
             tr.innerHTML = `
-                <td><strong>${row.keyword}</strong></td>
+                <td class="keyword-cell">${keywordDisplay}</td>
                 <td>
                     <div class="grid-product-cell">
                         <img src="${row.image}" class="grid-product-img" onerror="this.src='https://via.placeholder.com/40'">
