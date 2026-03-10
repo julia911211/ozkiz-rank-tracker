@@ -8,6 +8,7 @@ from scraper import get_naver_shopping_rank
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from database import (
+    SessionLocal, RankHistory, TrackedKeyword,
     save_rank_to_db, get_latest_rank, get_all_history, 
     get_all_tracked_keywords, add_tracked_keyword, remove_tracked_keyword
 )
