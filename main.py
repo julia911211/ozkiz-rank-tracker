@@ -223,6 +223,12 @@ def update_keywords(req: dict):
 def ping():
     return {"status": "alive", "time": datetime.now().isoformat()}
 
+@app.get("/api/dbinfo")
+def dbinfo():
+    import os
+    db_url = os.getenv("DATABASE_URL", "NOT SET - using SQLite fallback")
+    return {"database_url_prefix": db_url[:40] if db_url else "None"}
+
 @app.get("/api/clean_tests")
 def clean_tests():
     try:
