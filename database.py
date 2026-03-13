@@ -48,6 +48,30 @@ class TrackedKeyword(Base):
 # 테이블 생성
 Base.metadata.create_all(bind=engine)
 
+def run_migrations():
+    db = SessionLocal()
+    try:
+        from sqlalchemy import text
+        # Check if is_active column exists
+        if DATABASE_URL.startswith("sqlite"):
+            cursor = db.execute(text("PRAGMA table_info(tracked_keywords)"))
+            cols = [row[1] for row in cursor.fetchall()]
+            if "is_active" not in cols:
+                db.execute(text("ALTER TABLE tracked_keywords ADD COLUMN is_active INTEGER DEFAULT 1"))
+                db.commit()
+        else:
+            # PostgreSQL migration
+            cursor = db.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='tracked_keywords' AND column_name='is_active'"))
+            if not cursor.fetchone():
+                db.execute(text("ALTER TABLE tracked_keywords ADD COLUMN is_active INTEGER DEFAULT 1"))
+                db.commit()
+    except Exception as e:
+        print(f"Migration failed: {e}")
+    finally:
+        db.close()
+
+run_migrations()
+
 def save_rank_to_db(keyword: str, rank_display: str, rank_value: int, title: str, link: str, image: str):
     db = SessionLocal()
     try:
