@@ -142,13 +142,17 @@ def get_history_grid():
     
     grid_data = {}
     for h in history:
-        key = (h.keyword, h.product_title, h.product_image, h.product_link)
+        key = (h.keyword, h.product_title)
         if key not in grid_data:
-            grid_data[key] = {}
+            grid_data[key] = {
+                "image": h.product_image,
+                "link": h.product_link,
+                "history": {}
+            }
         
         date_str = h.created_at.strftime("%Y-%m-%d")
-        if date_str not in grid_data[key]:
-            grid_data[key][date_str] = {
+        if date_str not in grid_data[key]["history"]:
+            grid_data[key]["history"][date_str] = {
                 "rank_display": h.rank_display,
                 "rank_value": h.rank_value,
                 "created_at": h.created_at.isoformat()
@@ -157,14 +161,19 @@ def get_history_grid():
     # Include tracked keywords that have no history yet
 
     for kw in kws:
-        exists = any(key[0] == kw.keyword for key in grid_data.keys())
+        exists = any(k[0] == kw.keyword for k in grid_data.keys())
         if not exists:
-            dummy_key = (kw.keyword, "-", "", "")
-            grid_data[dummy_key] = {}
+            dummy_key = (kw.keyword, "-")
+            grid_data[dummy_key] = {
+                "image": "",
+                "link": "",
+                "history": {}
+            }
             
     rows = []
-    for key, history_map in grid_data.items():
-        keyword, title, image, link = key
+    for key, data_obj in grid_data.items():
+        keyword, title = key
+        history_map = data_obj["history"]
         history_list = []
         for i, date in enumerate(dates):
             current = history_map.get(date)
@@ -193,7 +202,7 @@ def get_history_grid():
                 })
                 
         rows.append({
-            "keyword": keyword, "title": title, "image": image, "link": link, "history": history_list,
+            "keyword": keyword, "title": title, "image": data_obj["image"], "link": data_obj["link"], "history": history_list,
             "order_index": kw_order.get(keyword, 999999)
         })
         

@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabContents = document.querySelectorAll('.tab-content');
     const historyBody = document.getElementById('historyBody');
     const refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
+    const cleanTestsBtn = document.getElementById('cleanTestsBtn');
 
     let isRunning = false;
     let resultsData = [];
@@ -165,6 +166,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     refreshHistoryBtn.addEventListener('click', loadHistory);
 
+    if (cleanTestsBtn) {
+        cleanTestsBtn.addEventListener('click', async () => {
+            if (confirm("'테스트' 키워드와 관련 기록을 모두 삭제하시겠습니까?")) {
+                try {
+                    const response = await fetch('/api/clean_tests');
+                    const result = await response.json();
+                    if (result.error) {
+                        alert('삭제 오류: ' + result.error);
+                    } else {
+                        alert(`삭제 완료: 히스토리 ${result.deleted_history}건, 키워드 ${result.deleted_keywords}건`);
+                        loadHistory();
+                        loadTrackedKeywords();
+                    }
+                } catch (error) {
+                    alert('서버 통신 오류');
+                }
+            }
+        });
+    }
+
     // --- Tracked Keywords Management ---
     const trackedKeywordsList = document.getElementById('trackedKeywordsList');
     const saveKeywordsBtn = document.getElementById('saveKeywordsBtn');
@@ -303,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const percent = Math.round(((i) / totalKeywords) * 100);
             progressBar.style.width = `${percent}%`;
             progressCount.textContent = `${i} / ${totalKeywords}`;
-            currentStatus.textContent = `'${kw}' 검색 및 최신 히스토리 분석 중...`;
+            currentStatus.textContent = `'${kw}' 검색 중...`;
 
             try {
                 const response = await fetch('/api/search_single', {
@@ -330,15 +351,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (i < keywords.length - 1) {
-                currentStatus.textContent = `네이버 보안 우회 중... (안전한 검색 보장)`;
-                const delayStr = Math.floor(Math.random() * (3000 - 1500 + 1) + 1500);
+                currentStatus.textContent = `다음 키워드 준비 중...`;
+                // 원활한 API 호출을 위한 짧은 대기 (기존 1.5~3초 -> 0.3~0.5초로 단축)
+                const delayStr = Math.floor(Math.random() * (500 - 300 + 1) + 300);
                 await new Promise(r => setTimeout(r, delayStr));
             }
         }
 
         progressBar.style.width = '100%';
         progressCount.textContent = `${keywords.length} / ${keywords.length}`;
-        currentStatus.textContent = '모든 키워드 스캔 및 실시간 히스토리 업데이트 완료!';
+        currentStatus.textContent = '스캔 완료!';
 
         isRunning = false;
         startBtn.disabled = false;

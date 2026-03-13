@@ -160,6 +160,23 @@ input[type="text"]:focus {
     border-color: #cbd5e1;
 }
 
+.danger-btn {
+    background: #fff1f2;
+    color: var(--danger);
+    border: 1px solid #fecdd3;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    font-weight: 600;
+}
+
+.danger-btn:hover {
+    background: #ffe4e6;
+    border-color: #fda4af;
+}
+
 /* Progress Section */
 .progress-section {
     margin: 2rem 0;
