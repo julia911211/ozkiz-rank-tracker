@@ -84,10 +84,13 @@ def get_all_history():
         db.close()
 
 # --- 키워드 관리 함수 ---
-def get_all_tracked_keywords():
+def get_all_tracked_keywords(include_inactive: bool = False):
     db = SessionLocal()
     try:
-        return db.query(TrackedKeyword).filter(TrackedKeyword.is_active == 1).all()
+        query = db.query(TrackedKeyword)
+        if not include_inactive:
+            query = query.filter(TrackedKeyword.is_active == 1)
+        return query.all()
     finally:
         db.close()
 

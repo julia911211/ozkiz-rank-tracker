@@ -63,7 +63,7 @@ def cron_scan(key: str = None):
 
 scheduler = BackgroundScheduler()
 # 내부 스케줄러 (서버가 깨어있을 때의 백업용)
-scheduler.add_job(daily_ranking_scan, 'cron', hour=2, minute=0)
+scheduler.add_job(daily_ranking_scan, 'cron', hour=8, minute=0)
 scheduler.start()
 
 # --- 앱 시작 시 자가 진단 및 초기화 ---
@@ -120,6 +120,22 @@ def search_single(req: SingleSearchRequest):
     
     return result
 
+@app.post("/api/toggle_keyword_active")
+def toggle_keyword_active(req: dict):
+    keyword = req.get("keyword")
+    is_active = req.get("is_active", 1)
+    
+    db = SessionLocal()
+    try:
+        kw_obj = db.query(TrackedKeyword).filter(TrackedKeyword.keyword == keyword).first()
+        if kw_obj:
+            kw_obj.is_active = 1 if is_active else 0
+            db.commit()
+            return {"status": "success", "is_active": kw_obj.is_active}
+        return {"status": "error", "message": "Keyword not found"}
+    finally:
+        db.close()
+
 @app.get("/api/get_history_grid")
 def get_history_grid():
     history = get_all_history()
@@ -133,8 +149,10 @@ def get_history_grid():
     finally:
         db.close()
         
-    kws = get_all_tracked_keywords()
-    for kw in kws:
+    kws_all = get_all_tracked_keywords(include_inactive=True)
+    kw_active_map = {k.keyword: k.is_active for k in kws_all}
+    
+    for kw in kws_all:
         if kw.keyword not in kw_order:
             kw_order[kw.keyword] = 900000 + kw.id
             
@@ -160,7 +178,8 @@ def get_history_grid():
             
     # Include tracked keywords that have no history yet
 
-    for kw in kws:
+    # Include tracked keywords that have no history yet (but are in kws_all)
+    for kw in kws_all:
         exists = any(k[0] == kw.keyword for k in grid_data.keys())
         if not exists:
             dummy_key = (kw.keyword, "-")
@@ -194,24 +213,27 @@ def get_history_grid():
                     is_new = True
                 
                 history_list.append({
-                    "date": date, "rank": current["rank_display"], "diff": diff, "is_new": is_new
+                    "date": date, "rank": current["rank_display"], "diff": diff, "is_new": is_new,
+                    "rank_value": current["rank_value"]
                 })
             else:
                 history_list.append({
-                    "date": date, "rank": "-", "diff": None, "is_new": False
+                    "date": date, "rank": "-", "diff": None, "is_new": False, "rank_value": None
                 })
                 
         rows.append({
-            "keyword": keyword, "title": title, "image": data_obj["image"], "link": data_obj["link"], "history": history_list,
-            "order_index": kw_order.get(keyword, 999999)
+            "keyword": keyword, "title": title, "image": data_obj["image"], "link": data_obj["link"], 
+            "history": history_list,
+            "order_index": kw_order.get(keyword, 999999),
+            "is_active": kw_active_map.get(keyword, 1)
         })
         
     return {"dates": dates, "rows": rows}
 
 @app.get("/api/keywords")
 def get_keywords():
-    kws = get_all_tracked_keywords()
-    return [{"id": k.id, "keyword": k.keyword} for k in kws]
+    kws = get_all_tracked_keywords(include_inactive=True)
+    return [{"id": k.id, "keyword": k.keyword, "is_active": k.is_active} for k in kws]
 
 @app.post("/api/keywords")
 def update_keywords(req: dict):

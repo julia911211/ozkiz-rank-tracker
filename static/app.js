@@ -66,12 +66,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 1. 헤더 초기화 및 날짜 추가
         headerRow.innerHTML = `
-            <th style="min-width: 120px;">키워드</th>
-            <th style="min-width: 250px;">연결 상품명</th>
+            <th class="sticky-col col-active">상태</th>
+            <th class="sticky-col col-kw">키워드</th>
+            <th class="sticky-col col-pd border-right">연결 상품명</th>
+            <th class="col-spark">추세(7일)</th>
         `;
         dates.forEach(date => {
             const th = document.createElement('th');
-            th.style.minWidth = '100px';
+            th.className = 'date-col';
             th.textContent = date.split('-').slice(1).join('/'); // MM/DD 형식
             headerRow.appendChild(th);
         });
@@ -121,15 +123,25 @@ document.addEventListener('DOMContentLoaded', () => {
             lastKeyword = row.keyword;
 
             // 키워드 & 상품 정보 (고정 컬럼)
+            const isActiveChecked = row.is_active ? 'checked' : '';
             tr.innerHTML = `
-                <td class="keyword-cell">${keywordDisplay}</td>
-                <td>
+                <td class="sticky-col col-active">
+                    <label class="switch">
+                        <input type="checkbox" class="kw-toggle" data-keyword="${row.keyword}" ${isActiveChecked}>
+                        <span class="slider"></span>
+                    </label>
+                </td>
+                <td class="sticky-col col-kw keyword-cell">${keywordDisplay}</td>
+                <td class="sticky-col col-pd border-right">
                     <div class="grid-product-cell">
                         <img src="${row.image}" class="grid-product-img" onerror="this.src='https://via.placeholder.com/40'">
                         <a href="${row.link}" target="_blank" class="grid-product-title" title="${row.title}">
                             ${row.title}
                         </a>
                     </div>
+                </td>
+                <td class="col-spark">
+                    <div class="sparkline-container">${drawSparkline(row.history)}</div>
                 </td>
             `;
 
@@ -145,9 +157,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (h.is_new) {
                         diffHtml = `<span class="rank-new-badge">NEW</span>`;
                     } else if (h.diff !== null) {
-                        if (h.diff > 0) diffHtml = `<span class="rank-diff diff-up" style="margin:0; font-size:0.7rem;">▲${h.diff}</span>`;
-                        else if (h.diff < 0) diffHtml = `<span class="rank-diff diff-down" style="margin:0; font-size:0.7rem;">▼${Math.abs(h.diff)}</span>`;
-                        else diffHtml = `<span class="rank-diff diff-stable" style="margin:0; font-size:0.7rem;">-</span>`;
+                        const arrow = h.diff > 0 ? '↗' : '↘';
+                        const diffClass = h.diff > 0 ? 'diff-up' : 'diff-down';
+                        if (h.diff !== 0) {
+                            diffHtml = `<span class="rank-diff ${diffClass}">${arrow} ${Math.abs(h.diff)}</span>`;
+                        } else {
+                            diffHtml = `<span class="rank-diff diff-stable">-</span>`;
+                        }
                     }
 
                     td.innerHTML = `
@@ -162,6 +178,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
             historyBody.appendChild(tr);
         });
+
+        // 3. 토글 이벤트 바인딩
+        document.querySelectorAll('.kw-toggle').forEach(el => {
+            el.onchange = async (e) => {
+                const keyword = e.target.getAttribute('data-keyword');
+                const is_active = e.target.checked;
+                await toggleKeywordActive(keyword, is_active);
+            };
+        });
+    }
+
+    async function toggleKeywordActive(keyword, is_active) {
+        try {
+            await fetch('/api/toggle_keyword_active', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keyword, is_active })
+            });
+        } catch (e) { console.error('Toggle Error:', e); }
+    }
+
+    function drawSparkline(history) {
+        if (!history || history.length < 2) return '';
+        
+        // 최신순인 history를 시간순으로 뒤집어서 7개만 사용
+        const points = history.slice(0, 7).reverse()
+            .map(h => h.rank_value)
+            .filter(v => v !== null);
+
+        if (points.length < 2) return '';
+
+        const min = 1;
+        const max = 100; // 100위 밖은 바닥으로 처리
+        const h = 30; // SVG 높이
+        const w = 80; // SVG 너비
+        
+        // 좌표 계산 (순위 1이 높게, 순환 100이 낮게)
+        const coords = points.map((p, i) => {
+            const x = (i / (points.length - 1)) * w;
+            const val = Math.min(p, max);
+            const y = ((val - min) / (max - min)) * h;
+            return `${x},${y}`;
+        });
+
+        return `
+            <svg class="sparkline-svg" viewBox="0 0 ${w} ${h}">
+                <path class="sparkline-path" d="M ${coords.join(' L ')}" />
+            </svg>
+        `;
     }
 
     refreshHistoryBtn.addEventListener('click', loadHistory);
@@ -209,9 +274,10 @@ document.addEventListener('DOMContentLoaded', () => {
         trackedKeywordsList.innerHTML = '';
         keywords.forEach(kw => {
             const span = document.createElement('span');
-            span.className = 'keyword-tag';
+            span.className = `keyword-tag ${kw.is_active ? 'active' : 'inactive'}`;
+            span.style.opacity = kw.is_active ? '1' : '0.5';
             span.innerHTML = `
-                ${kw.keyword}
+                ${kw.is_active ? '✅' : '💤'} ${kw.keyword}
                 <span class="remove-kw" data-id="${kw.id}" data-keyword="${kw.keyword}">×</span>
             `;
             trackedKeywordsList.appendChild(span);
