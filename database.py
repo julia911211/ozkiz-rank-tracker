@@ -70,7 +70,7 @@ def run_migrations():
     finally:
         db.close()
 
-run_migrations()
+# run_migrations()  # Moved to main.py startup for safety
 
 def save_rank_to_db(keyword: str, rank_display: str, rank_value: int, title: str, link: str, image: str):
     db = SessionLocal()

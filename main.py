@@ -10,7 +10,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from database import (
     SessionLocal, RankHistory, TrackedKeyword,
     save_rank_to_db, get_latest_rank, get_all_history, 
-    get_all_tracked_keywords, add_tracked_keyword, remove_tracked_keyword
+    get_all_tracked_keywords, add_tracked_keyword, remove_tracked_keyword,
+    run_migrations
 )
 
 app = FastAPI()
@@ -69,7 +70,9 @@ scheduler.start()
 # --- 앱 시작 시 자가 진단 및 초기화 ---
 @app.on_event("startup")
 async def startup_event():
-    print("서버 시작 및 스케줄러 가동 확인...")
+    print("서버 시작 및 DB 마이그레이션 확인...")
+    run_migrations()
+    print("스케줄러 가동 확인...")
 
 # 절대 경로 설정을 위한 BASE_DIR 정의
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

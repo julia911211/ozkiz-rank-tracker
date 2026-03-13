@@ -1,8 +1,9 @@
 fastapi
-uvicorn
+uvicorn[standard]
+gunicorn
 pydantic
 python-dotenv
-sqlalchemy
+sqlalchemy>=1.4
 apscheduler
 requests
 beautifulsoup4
