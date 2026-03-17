@@ -1,5 +1,6 @@
 import os
 import uvicorn
+import logging
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -13,6 +14,10 @@ from database import (
     get_all_tracked_keywords, add_tracked_keyword, remove_tracked_keyword,
     run_migrations
 )
+
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("main")
 
 app = FastAPI()
 
@@ -67,12 +72,16 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(daily_ranking_scan, 'cron', hour=8, minute=0)
 scheduler.start()
 
-# --- 앱 시작 시 자가 진단 및 초기화 ---
 @app.on_event("startup")
 async def startup_event():
-    print("서버 시작 및 DB 마이그레이션 확인...")
-    run_migrations()
-    print("스케줄러 가동 확인...")
+    logger.info("서버 시작 및 DB 마이크레이션 확인 중...")
+    try:
+        run_migrations()
+        logger.info("DB 마이그레이션 성공")
+    except Exception as e:
+        logger.error(f"DB 마이그레이션 실패: {e}")
+    
+    logger.info("스케줄러 가동 확인...")
 
 # 절대 경로 설정을 위한 BASE_DIR 정의
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
