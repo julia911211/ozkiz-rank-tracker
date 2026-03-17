@@ -1,156 +1,172 @@
 <!DOCTYPE html>
 <html lang="ko">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>네이버 쇼핑 랭킹 트래커 | 오즈키즈</title>
-    <!-- 구글 폰트 적용 (프리미엄 폰트: Inter 및 Pretendard 느낌) -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=10">
+    <title>Ozkiz Rank Tracker | 프리미엄 랭킹 관리</title>
+    <!-- Premium Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/styles.css?v=1.3">
 </head>
-
-<body>
-    <div class="app-container">
-        <!-- 사이드바 / 헤더 부분 -->
-        <header class="header">
-            <div class="logo">
-                <span class="highlight">Ozkiz</span> Rank Tracker
+<body class="bg-gray-50 text-gray-900">
+    <div id="app" class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="glass-header sticky top-0 z-40 w-full border-b border-white/20 bg-white/70 backdrop-blur-md">
+            <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="logo-icon bg-gradient-to-tr from-purple-600 to-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shadow-purple-500/20">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1 class="text-xl font-bold tracking-tight text-slate-800">Ozkiz <span class="text-purple-600">Rank Tracker</span></h1>
+                        <p class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Premium SaaS Edition</p>
+                    </div>
+                </div>
+                
+                <nav class="flex p-1 bg-slate-100 rounded-xl">
+                    <button id="btn-tab-scan" class="nav-tab active" data-tab="scan">
+                        실시간 스캔
+                    </button>
+                    <button id="btn-tab-history" class="nav-tab" data-tab="history">
+                        순위 히스토리
+                    </button>
+                </nav>
             </div>
-            <p class="subtitle">매일 오전 8시, 네이버 쇼핑 키워드 랭킹 자동 리포트</p>
         </header>
 
-        <main class="main-content">
-            <!-- 탭 네비게이션 -->
-            <nav class="tab-nav">
-                <button class="tab-btn" data-tab="scan-tab">⚡ 실시간 스캔</button>
-                <button class="tab-btn active" data-tab="history-tab">📅 순위 히스토리</button>
-            </nav>
+        <main class="flex-grow max-w-7xl mx-auto w-full px-6 py-8">
+            <!-- Scan Panel -->
+            <div id="panel-scan" class="tab-panel animate-fade-in">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Config Section -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <div class="premium-card p-6">
+                            <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                <span class="text-purple-500 text-xl">⚙️</span> 스캔 설정
+                            </h3>
+                            
+                            <div class="space-y-5">
+                                <div class="field">
+                                    <label class="block text-sm font-bold text-slate-600 mb-2">마스터 키워드</label>
+                                    <select id="select-keyword" class="premium-input w-full cursor-pointer">
+                                        <option value="">적용할 키워드 선택</option>
+                                    </select>
+                                    <p class="mt-2 text-[11px] text-slate-400 font-medium">* 오전 8시 자동 스캔 대상입니다.</p>
+                                </div>
 
-            <div id="scan-tab" class="tab-content">
-                <!-- 컨트롤 패널 -->
-                <section class="control-panel glass-panel">
-                    <div class="input-group">
-                        <label for="keywords">검색 키워드 (한 줄에 하나씩)</label>
-                        <textarea id="keywords" placeholder="유치원실내화&#10;아기신발&#10;..."></textarea>
-                        <div class="keyword-actions">
-                            <button id="saveKeywordsBtn" class="secondary-btn" style="margin-top: 5px; width: 100%;">
-                                ☁️ 아래 리스트를 '자동 추적 마스터 목록'으로 저장
-                            </button>
+                                <div class="field">
+                                    <label class="block text-sm font-bold text-slate-600 mb-2">슈퍼적립 키워드</label>
+                                    <input type="text" id="input-supersave" class="premium-input w-full" placeholder="콤마(,)로 구분">
+                                    <p class="mt-2 text-[11px] text-slate-400 font-medium">* 브라우저에 자동 저장됩니다.</p>
+                                </div>
+
+                                <div class="pt-4 space-y-3">
+                                    <button id="btn-run-scan" class="primary-btn w-full flex items-center justify-center gap-2">
+                                        <span>🚀 스캔 시작하기</span>
+                                    </button>
+                                    <button id="btn-open-master" class="secondary-btn w-full">
+                                        키워드 통합 관리
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="master-list-header" id="masterListToggle">
-                        <label>현재 자동 추적 중인 키워드 <span id="toggleIcon">▼</span></label>
-                    </div>
-                    <div class="master-list-panel collapsed" id="masterListPanel">
-                        <div id="trackedKeywordsList" class="keyword-tags">
-                            <!-- 키워드 태그들이 여기에 표시됨 -->
-                            <span class="no-keywords">불러오는 중...</span>
+                    <!-- Results Section -->
+                    <div class="lg:col-span-2">
+                        <div id="scan-empty" class="premium-card h-full flex flex-col items-center justify-center py-20 text-center border-dashed border-2 border-slate-200 bg-slate-50/50">
+                            <div class="w-20 h-20 bg-white rounded-3xl shadow-sm flex items-center justify-center text-3xl mb-4 grayscale opacity-50">📋</div>
+                            <h4 class="text-lg font-bold text-slate-400">조회된 결과가 없습니다.</h4>
+                            <p class="text-slate-400 text-sm mt-1">상단에서 키워드를 선택하고 스캔을 시작하세요.</p>
                         </div>
-                        <small style="color: var(--text-secondary); font-size: 0.7rem;">
-                            * 여기 등록된 키워드는 매일 오전 8시에 자동으로 랭킹이 기록됩니다.
-                        </small>
-                    </div>
-                    <div class="input-group">
-                        <label for="superSaveKeywords" style="display: flex; align-items: center; gap: 8px;">
-                            슈퍼적립 설정 (상품명 핵심어)
-                            <span class="save-badge">저장됨</span>
-                        </label>
-                        <textarea id="superSaveKeywords" placeholder="오즈키즈 유아실내화&#10;오즈키즈 아기 신발&#10;..."
-                            style="height: 60px;"></textarea>
-                        <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 5px;">
-                            이곳에 입력한 글자가 포함된 제품만 '슈퍼적립' 마크를 달고 1위로 집계됩니다.<br>
-                            (한 번만 입력하면 브라우저가 기억하므로 매달 바뀔 때만 수정해 주시면 됩니다.)
-                        </small>
-                    </div>
 
-                    <div class="input-group">
-                        <label for="brandInput">타겟 브랜드명 (검색결과에서 찾을 이름)</label>
-                        <input type="text" id="brandInput" value="오즈키즈">
-                    </div>
+                        <div id="scan-loading" class="hidden premium-card h-full flex flex-col items-center justify-center py-20">
+                            <div class="loading-ring mb-4"></div>
+                            <p class="text-slate-500 font-medium">네이버 쇼핑 데이터를 분석 중입니다...</p>
+                        </div>
 
-                    <button id="startBtn" class="primary-btn">
-                        <span class="btn-icon">🚀</span> 랭킹 스캔 시작
-                    </button>
-                </section>
-
-                <!-- 상태 및 진행 바 -->
-                <section class="progress-section hidden" id="progressSection">
-                    <div class="status-text">
-                        <span id="currentStatus">대기 중...</span>
-                        <span id="progressCount">0 / 0</span>
+                        <div id="scan-content" class="hidden space-y-4">
+                            <div class="flex items-center justify-between px-2">
+                                <h3 class="text-xl font-black text-slate-800">스캔 결과</h3>
+                                <button id="btn-download-csv" class="text-xs font-bold text-purple-600 hover:text-purple-700 underline underline-offset-4">CSV 파일로 저장</button>
+                            </div>
+                            <div class="premium-card overflow-hidden">
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm text-left">
+                                        <thead class="bg-slate-50 border-b border-slate-100 uppercase text-[10px] font-black text-slate-500 tracking-wider">
+                                            <tr>
+                                                <th class="px-6 py-4 w-20">순위</th>
+                                                <th class="px-6 py-4">상품 정보</th>
+                                                <th class="px-6 py-4 w-32">동작</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbody-scan" class="divide-y divide-slate-50">
+                                            <!-- Dynamic Rows -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar" id="progressBar"></div>
-                    </div>
-                </section>
-
-                <!-- 결과 테이블 영역 -->
-                <section class="results-panel glass-panel">
-                    <div class="panel-header">
-                        <h2>스캔 결과</h2>
-                        <button id="exportCsvBtn" class="secondary-btn" disabled>CSV 다운로드</button>
-                    </div>
-                    <div class="table-container">
-                        <table id="resultsTable">
-                            <thead>
-                                <tr>
-                                    <th style="min-width: 120px;">키워드</th>
-                                    <th>1순위 상품</th>
-                                    <th>2순위 상품</th>
-                                    <th>3순위 상품</th>
-                                    <th>4순위 상품</th>
-                                    <th>5순위 상품</th>
-                                </tr>
-                            </thead>
-                            <tbody id="resultsBody">
-                                <tr class="empty-row">
-                                    <td colspan="6">아직 조회된 결과가 없습니다.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+                </div>
             </div>
 
-            <!-- 순위 히스토리 탭 -->
-            <div id="history-tab" class="tab-content active">
-                <section class="results-panel glass-panel">
-                    <div class="panel-header">
-                        <div class="header-main">
-                            <h2>키워드별 순위 누적 현황</h2>
-                            <p class="panel-desc">매일 오전 8시 자동 측정된 순위 변화를 확인하세요.</p>
+            <!-- History Panel -->
+            <div id="panel-history" class="tab-panel hidden animate-fade-in">
+                <div class="premium-card shadow-xl shadow-slate-200/50">
+                    <div class="p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-xl font-black text-slate-800">키워드별 순위 누적 리포트</h3>
+                            <p class="text-xs text-slate-400 font-medium mt-1">매일 오전 8시 스캔 기록이 누적됩니다.</p>
                         </div>
-                        <div class="header-actions">
-                            <button id="cleanTestsBtn" class="danger-btn">🗑️ 테스트 삭제</button>
-                            <button id="refreshHistoryBtn" class="secondary-btn">🔄 기록 새로고침</button>
+                        <div class="flex items-center gap-2">
+                            <button id="btn-refresh-history" class="icon-btn" title="새로고침">🔄</button>
+                            <button id="btn-ui-clean" class="danger-text-btn text-xs font-bold">테스트 데이터 정리</button>
                         </div>
                     </div>
-                    <div class="table-container history-grid-container">
-                        <table id="historyTable" class="modern-table sticky-table">
-                            <thead>
-                                <tr id="historyHeaderRow">
-                                    <th class="sticky-col col-active">상태</th>
-                                    <th class="sticky-col col-kw">키워드</th>
-                                    <th class="sticky-col col-pd">연결 상품명</th>
-                                    <th class="col-spark">추이(7일)</th>
-                                    <!-- 날짜 컬럼이기에 동적으로 추가됨 -->
-                                </tr>
+                    
+                    <div class="history-table-wrapper overflow-x-auto">
+                        <table id="table-history" class="premium-grid-table w-full border-collapse">
+                            <thead id="thead-history" class="bg-slate-50/50">
+                                <!-- Dynamic Headers -->
                             </thead>
-                            <tbody id="historyBody">
-                                <tr class="empty-row">
-                                    <td colspan="5">데이터를 불러오는 중...</td>
-                                </tr>
+                            <tbody id="tbody-history" class="bg-white">
+                                <!-- Dynamic Rows -->
                             </tbody>
                         </table>
                     </div>
-                </section>
+                </div>
             </div>
         </main>
     </div>
 
-    <script src="/static/app.js?v=10"></script>
-</body>
+    <!-- Master Modal -->
+    <div id="modal-master" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div class="premium-card w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl translate-y-4 transition-transform duration-300">
+            <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0">
+                <h3 class="text-xl font-black text-slate-800">키워드 설정 센터</h3>
+                <button id="btn-close-modal" class="text-2xl font-light hover:text-purple-600 transition-colors">&times;</button>
+            </div>
+            
+            <div class="flex-grow overflow-y-auto p-8 space-y-8 bg-slate-50/30">
+                <div class="bg-gradient-to-br from-purple-50 to-indigo-50 p-6 rounded-2xl border border-purple-100/50">
+                    <label class="block text-sm font-black text-purple-700/60 uppercase tracking-widest mb-4">마스터 키워드 일괄 등록</label>
+                    <textarea id="text-master-input" class="premium-textarea w-full h-40 focus:ring-purple-400" placeholder="아래 형식으로 입력 (한 줄에 하나씩)&#10;키즈운동화&#10;유치원실내화&#10;..."></textarea>
+                    <div class="mt-4 flex justify-end">
+                        <button id="btn-save-master-bulk" class="primary-btn px-8">리스트 업데이트</button>
+                    </div>
+                </div>
 
+                <div class="space-y-4">
+                    <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest px-1">현재 정기 추적 중인 키워드</h4>
+                    <div id="list-master-keywords" class="grid grid-cols-1 gap-2">
+                        <!-- Dynamic Keyword Items -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/app.js?v=1.3"></script>
+</body>
 </html>

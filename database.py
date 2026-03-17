@@ -60,21 +60,24 @@ def run_migrations():
     db = SessionLocal()
     try:
         from sqlalchemy import text
-        # Check if is_active column exists
-        if DATABASE_URL.startswith("sqlite"):
-            cursor = db.execute(text("PRAGMA table_info(tracked_keywords)"))
-            cols = [row[1] for row in cursor.fetchall()]
-            if "is_active" not in cols:
+        # Add is_active column if missing
+        print("Checking for is_active column...")
+        try:
+            # Try to select the column to see if it exists
+            db.execute(text("SELECT is_active FROM tracked_keywords LIMIT 1"))
+            print("'is_active' column already exists.")
+        except Exception:
+            print("'is_active' column missing, attempting to add...")
+            try:
+                db.rollback() # Clear failed transaction
                 db.execute(text("ALTER TABLE tracked_keywords ADD COLUMN is_active INTEGER DEFAULT 1"))
                 db.commit()
-        else:
-            # PostgreSQL migration
-            cursor = db.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='tracked_keywords' AND column_name='is_active'"))
-            if not cursor.fetchone():
-                db.execute(text("ALTER TABLE tracked_keywords ADD COLUMN is_active INTEGER DEFAULT 1"))
-                db.commit()
+                print("Column 'is_active' added successfully.")
+            except Exception as e2:
+                print(f"Failed to add column: {e2}")
+                db.rollback()
     except Exception as e:
-        print(f"Migration failed: {e}")
+        print(f"Migration processing error: {e}")
     finally:
         db.close()
 

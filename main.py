@@ -164,23 +164,28 @@ def toggle_keyword_active(req: dict):
 
 @app.get("/api/get_history_grid")
 def get_history_grid():
-    history = get_all_history()
-    
-    # Establish original insertion order based on RankHistory ID
-    db = SessionLocal()
     try:
-        from sqlalchemy import func
-        earliest_seen = db.query(RankHistory.keyword, func.min(RankHistory.id)).group_by(RankHistory.keyword).all()
-        kw_order = {kw: min_id for kw, min_id in earliest_seen}
-    finally:
-        db.close()
+        history = get_all_history()
         
-    kws_all = get_all_tracked_keywords(include_inactive=True)
-    kw_active_map = {k.keyword: k.is_active for k in kws_all}
-    
-    for kw in kws_all:
-        if kw.keyword not in kw_order:
-            kw_order[kw.keyword] = 900000 + kw.id
+        # Establish original insertion order based on RankHistory ID
+        db = SessionLocal()
+        try:
+            from sqlalchemy import func
+            earliest_seen = db.query(RankHistory.keyword, func.min(RankHistory.id)).group_by(RankHistory.keyword).all()
+            kw_order = {row[0]: row[1] for row in earliest_seen if row[0]}
+        finally:
+            db.close()
+            
+        kws_all = get_all_tracked_keywords(include_inactive=True)
+        kw_active_map = {k.keyword: k.is_active if hasattr(k, "is_active") else 1 for k in kws_all}
+        
+        for kw in kws_all:
+            if kw.keyword not in kw_order:
+                kw_order[kw.keyword] = 900000 + (kw.id if kw.id else 0)
+    except Exception as e:
+        logger.error(f"get_history_grid error: {e}")
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
             
     dates = sorted(list(set(h.created_at.strftime("%Y-%m-%d") for h in history)), reverse=True)
     
@@ -258,8 +263,12 @@ def get_history_grid():
 
 @app.get("/api/keywords")
 def get_keywords():
-    kws = get_all_tracked_keywords(include_inactive=True)
-    return [{"id": k.id, "keyword": k.keyword, "is_active": k.is_active} for k in kws]
+    try:
+        kws = get_all_tracked_keywords(include_inactive=True)
+        return [{"id": k.id, "keyword": k.keyword, "is_active": getattr(k, "is_active", 1)} for k in kws]
+    except Exception as e:
+        logger.error(f"get_keywords error: {e}")
+        return {"error": str(e)}
 
 @app.post("/api/keywords")
 def update_keywords(req: dict):
@@ -275,6 +284,24 @@ def update_keywords(req: dict):
             add_tracked_keyword(nk.strip(), target_brand)
             
     return {"status": "success", "count": len(new_keywords)}
+
+@app.post("/api/toggle_keyword_active")
+def toggle_keyword_active(req: dict):
+    db = SessionLocal()
+    try:
+        kw = req.get("keyword")
+        is_active = req.get("is_active")
+        target = db.query(TrackedKeyword).filter(TrackedKeyword.keyword == kw).first()
+        if target:
+            target.is_active = 1 if is_active else 0
+            db.commit()
+            return {"status": "success"}
+        return {"status": "error", "message": "Keyword not found"}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()
 
 @app.get("/api/ping")
 def ping():
