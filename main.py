@@ -92,8 +92,16 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/")
 async def read_index():
+    logger.info("Index page requested")
     index_path = os.path.join(STATIC_DIR, "index.html")
+    if not os.path.exists(index_path):
+        logger.error(f"index.html not found at {index_path}")
+        return {"error": "Frontend files missing"}
     return FileResponse(index_path)
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "time": datetime.now().isoformat()}
 
 class SingleSearchRequest(BaseModel):
     keyword: str

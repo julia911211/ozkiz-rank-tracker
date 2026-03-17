@@ -45,10 +45,18 @@ class TrackedKeyword(Base):
     is_active = Column(Integer, default=1) # 1: 활성, 0: 비활성
     created_at = Column(DateTime, default=datetime.utcnow)
 
-# 테이블 생성
-Base.metadata.create_all(bind=engine)
+# run_migrations()에서 처리함
+# Base.metadata.create_all(bind=engine)
 
 def run_migrations():
+    print("Database initialization and migration starting...")
+    # 테이블 생성 (스키마 반영)
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("Base.metadata.create_all success")
+    except Exception as e:
+        print(f"Base.metadata.create_all failed: {e}")
+
     db = SessionLocal()
     try:
         from sqlalchemy import text
