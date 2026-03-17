@@ -6,9 +6,25 @@ from sqlalchemy.orm import sessionmaker
 
 # DB 설정 (Render - Supabase 연동 대비)
 DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    # SQLAlchemy requires 'postgresql://' instead of 'postgres://'
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+if DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.strip()
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    
+    # URL Encoding for password (if special characters like ! # exist)
+    if "@" in DATABASE_URL:
+        try:
+            from urllib.parse import quote_plus
+            prefix, rest = DATABASE_URL.split("://", 1)
+            if "@" in rest:
+                user_pass, host_db = rest.split("@", 1)
+                if ":" in user_pass:
+                    user, password = user_pass.split(":", 1)
+                    # Encode password if it contains special chars
+                    if any(c in password for c in "!@#$%^&*()"):
+                        DATABASE_URL = f"{prefix}://{user}:{quote_plus(password)}@{host_db}"
+        except Exception as e:
+            print(f"Error encoding DATABASE_URL: {e}")
 
 if not DATABASE_URL:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))

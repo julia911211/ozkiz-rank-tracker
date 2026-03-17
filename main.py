@@ -99,11 +99,17 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/")
 async def read_index():
     logger.info("Index page requested")
-    index_path = os.path.join(STATIC_DIR, "index.html")
-    if not os.path.exists(index_path):
-        logger.error(f"index.html not found at {index_path}")
+    # Try root first (newly copied), then static fallback
+    root_index = os.path.join(BASE_DIR, "index.html")
+    static_index = os.path.join(STATIC_DIR, "index.html")
+    
+    target_path = root_index if os.path.exists(root_index) else static_index
+    
+    if not os.path.exists(target_path):
+        logger.error(f"index.html not found! Tried {root_index} and {static_index}")
         return {"error": "Frontend files missing"}
-    return FileResponse(index_path)
+    
+    return FileResponse(target_path)
 
 @app.get("/health")
 async def health_check():
