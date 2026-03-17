@@ -67,10 +67,8 @@ def cron_scan(key: str = None):
         
     return {"status": "success", "message": "Scan started in background"}
 
+# 전역 변수로 선언만 함
 scheduler = BackgroundScheduler()
-# 내부 스케줄러 (서버가 깨어있을 때의 백업용)
-scheduler.add_job(daily_ranking_scan, 'cron', hour=8, minute=0)
-scheduler.start()
 
 @app.on_event("startup")
 async def startup_event():
@@ -82,6 +80,14 @@ async def startup_event():
         logger.error(f"DB 마이그레이션 실패: {e}")
     
     logger.info("스케줄러 가동 확인...")
+    try:
+        # 내장 스케줄러 시작 (8시 스캔)
+        if not scheduler.running:
+            scheduler.add_job(daily_ranking_scan, 'cron', hour=8, minute=0)
+            scheduler.start()
+            logger.info("내장 스케줄러 시작 완료 (오전 8시)")
+    except Exception as e:
+        logger.error(f"스케줄러 시작 실패: {e}")
 
 # 절대 경로 설정을 위한 BASE_DIR 정의
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
