@@ -81,17 +81,30 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/api/keywords');
             const data = await response.json();
-            if (data.error) throw new Error(data.error);
+            
+            if (data.error) {
+                console.error('DB Error:', data.error);
+                listMasterKeywords.innerHTML = `
+                    <div class="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm">
+                        ⚠️ <strong>데이터베이스 연결 오류</strong><br>
+                        <p class='mt-1 opacity-80'>${data.error}</p>
+                        <p class='mt-2 text-[11px] font-bold underline'>Walkthrough 가이드를 확인하여 DB 주소를 수정해 주세요.</p>
+                    </div>`;
+                return;
+            }
+            
             renderMasterKeywords(data);
             
             // Update the select dropdown in scan panel
             selectKeyword.innerHTML = '<option value="">적용할 키워드 선택</option>';
-            data.forEach(kw => {
-                const opt = document.createElement('option');
-                opt.value = kw.keyword;
-                opt.textContent = `${kw.is_active ? '✅' : '💤'} ${kw.keyword}`;
-                selectKeyword.appendChild(opt);
-            });
+            if (Array.isArray(data)) {
+                data.forEach(kw => {
+                    const opt = document.createElement('option');
+                    opt.value = kw.keyword;
+                    opt.textContent = `${kw.is_active ? '✅' : '💤'} ${kw.keyword}`;
+                    selectKeyword.appendChild(opt);
+                });
+            }
         } catch (err) {
             console.error('Failed to load keywords:', err);
         }
@@ -401,8 +414,17 @@ document.addEventListener('DOMContentLoaded', () => {
     async function runBulkScan() {
         try {
             const response = await fetch('/api/keywords');
-            const keywords = await response.json();
-            const activeKws = keywords.filter(k => k.is_active);
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error('데이터베이스 연결이 원활하지 않습니다.\n\n오류: ' + data.error);
+            }
+            
+            if (!Array.isArray(data)) {
+                throw new Error('데이터 형식이 올바르지 않습니다.');
+            }
+
+            const activeKws = data.filter(k => k.is_active);
             
             if (activeKws.length === 0) return alert('활성화된 키워드가 없습니다.');
             
@@ -420,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             alert('모든 키워드 스캔이 완료되었습니다. 히스토리 탭에서 결과를 확인하세요.');
         } catch (err) {
-            alert('전체 스캔 중 오류: ' + err.message);
+            alert('전체 스캔 중 오류:\n' + err.message);
         } finally {
             btnBulkScan.disabled = false;
             btnBulkScan.textContent = '🔥 모든 활성 키워드 전체 스캔';
