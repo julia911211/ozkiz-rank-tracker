@@ -13,23 +13,25 @@ if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     
-    # URL Encoding for password (if special characters like ! # exist)
+    # URL Encoding for password (if special characters like ! # @ exist)
     if "@" in DATABASE_URL:
         try:
-            from urllib.parse import quote_plus, urlparse
-            parsed = urlparse(DATABASE_URL)
-            if parsed.password:
-                import re
-                # Only encode the password part
-                # Reconstruct netloc: user:pass@host:port
-                encoded_pass = quote_plus(parsed.password)
-                new_netloc = f"{parsed.username}:{encoded_pass}@{parsed.hostname}"
-                if parsed.port:
-                    new_netloc += f":{parsed.port}"
-                DATABASE_URL = parsed._replace(netloc=new_netloc).geturl()
-                print(f"DATABASE_URL host: {parsed.hostname} (Cleaned)")
+            from urllib.parse import quote_plus
+            # Split from the RIGHT to correctly handle '@' in passwords
+            # Format: postgresql://user:pass@host:port/db
+            prefix, rest = DATABASE_URL.split("://", 1)
+            user_info, host_info = rest.rsplit("@", 1) # Find the LAST @
+            
+            if ":" in user_info:
+                user, password = user_info.split(":", 1)
+                # Encode the password
+                encoded_pass = quote_plus(password)
+                DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_info}"
+                print(f"DATABASE_URL password encoded. Host: {host_info.split(':')[0]} (Robustly parsed)")
+            else:
+                print(f"DATABASE_URL host: {host_info.split(':')[0]}")
         except Exception as e:
-            print(f"Error cleaning/encoding DATABASE_URL: {e}")
+            print(f"Error robustly parsing/encoding DATABASE_URL: {e}")
 
 if not DATABASE_URL:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
