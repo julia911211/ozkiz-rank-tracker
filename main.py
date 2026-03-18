@@ -127,10 +127,19 @@ async def read_js():
 def diag():
     import os
     db_url = os.getenv("DATABASE_URL", "NOT SET")
+    masked_url = db_url
+    if db_url and "@" in db_url:
+        try:
+            parts = db_url.split("@")
+            prefix = parts[0].split(":")
+            if len(prefix) > 2:
+                masked_url = f"{prefix[0]}:{prefix[1]}:****@{parts[1]}"
+        except:
+            masked_url = "Error masking URL"
+            
     return {
+        "db_url_masked": masked_url,
         "db_url_len": len(db_url),
-        "db_url_prefix": db_url[:40] if db_url else "",
-        "db_url_suffix": db_url[-20:] if db_url else "",
         "cwd": os.getcwd(),
         "files": os.listdir(".")
     }
