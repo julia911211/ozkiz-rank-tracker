@@ -123,6 +123,17 @@ async def read_styles():
 async def read_js():
     return FileResponse(os.path.join(BASE_DIR, "app.js"))
 
+@app.get("/api/diag")
+def diag():
+    import os
+    db_url = os.getenv("DATABASE_URL", "NOT SET")
+    return {
+        "db_url_len": len(db_url),
+        "db_url_prefix": db_url[:20] if db_url else "",
+        "cwd": os.getcwd(),
+        "files": os.listdir(".")
+    }
+
 class SingleSearchRequest(BaseModel):
     keyword: str
     target_brand: str
