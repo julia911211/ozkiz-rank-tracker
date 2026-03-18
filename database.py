@@ -7,9 +7,8 @@ from sqlalchemy.orm import sessionmaker
 # DB 설정 (Render - Supabase 연동 대비)
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL:
-    DATABASE_URL = DATABASE_URL.strip()
-    # Remove any trailing /r or /n explicitly
-    DATABASE_URL = DATABASE_URL.replace('\r', '').replace('\n', '')
+    # Aggressive cleaning of invisible chars
+    DATABASE_URL = "".join(DATABASE_URL.split()) # Remove ALL whitespace/newlines
     
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -18,19 +17,19 @@ if DATABASE_URL:
     if "@" in DATABASE_URL:
         try:
             from urllib.parse import quote_plus, urlparse
-            # Use urlparse for more robust decomposition
             parsed = urlparse(DATABASE_URL)
-            if parsed.password and any(c in parsed.password for c in "!@#$%^&*()"):
-                # Reconstruct with encoded password
-                new_netloc = f"{parsed.username}:{quote_plus(parsed.password)}@{parsed.hostname}"
+            if parsed.password:
+                import re
+                # Only encode the password part
+                # Reconstruct netloc: user:pass@host:port
+                encoded_pass = quote_plus(parsed.password)
+                new_netloc = f"{parsed.username}:{encoded_pass}@{parsed.hostname}"
                 if parsed.port:
                     new_netloc += f":{parsed.port}"
                 DATABASE_URL = parsed._replace(netloc=new_netloc).geturl()
-                print(f"DATABASE_URL password encoded. Host: {parsed.hostname}")
-            else:
-                print(f"DATABASE_URL host: {parsed.hostname}")
+                print(f"DATABASE_URL host: {parsed.hostname} (Cleaned)")
         except Exception as e:
-            print(f"Error parsing/encoding DATABASE_URL: {e}")
+            print(f"Error cleaning/encoding DATABASE_URL: {e}")
 
 if not DATABASE_URL:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
