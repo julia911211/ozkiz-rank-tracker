@@ -113,6 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="font-bold text-slate-700">${kw.keyword}</span>
                 </div>
                 <div class="flex items-center gap-2">
+                    <button class="scan-now-btn p-2 text-purple-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all" 
+                            title="즉시 스캔" data-keyword="${kw.keyword}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                    </button>
                     <button class="toggle-btn px-3 py-1 text-[10px] font-black uppercase tracking-tighter rounded-lg border ${kw.is_active ? 'border-emerald-200 text-emerald-600' : 'border-slate-200 text-slate-400'}" 
                             data-keyword="${kw.keyword}" data-active="${kw.is_active}">
                         ${kw.is_active ? '활성' : '비활성'}
@@ -131,6 +135,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const kw = btn.dataset.keyword;
                 const nextActive = btn.dataset.active === '1' ? 0 : 1;
                 await toggleKeyword(kw, nextActive);
+            });
+        });
+
+        listMasterKeywords.querySelectorAll('.scan-now-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const kw = btn.dataset.keyword;
+                closeModal();
+                selectKeyword.value = kw;
+                btnRunScan.click();
             });
         });
     }
@@ -381,6 +394,53 @@ document.addEventListener('DOMContentLoaded', () => {
         link.click();
         document.body.removeChild(link);
     });
+
+    // --- Bulk Scan Logic ---
+    const btnBulkScan = document.getElementById('btn-bulk-scan');
+    
+    async function runBulkScan() {
+        try {
+            const response = await fetch('/api/keywords');
+            const keywords = await response.json();
+            const activeKws = keywords.filter(k => k.is_active);
+            
+            if (activeKws.length === 0) return alert('활성화된 키워드가 없습니다.');
+            
+            if (!confirm(`총 ${activeKws.length}개의 키워드를 순차적으로 스캔하시겠습니까? (시간이 소요될 수 있습니다)`)) return;
+            
+            btnBulkScan.disabled = true;
+            btnBulkScan.textContent = '⏱️ 전체 스캔 진행 중...';
+            
+            for (const kw of activeKws) {
+                btnBulkScan.textContent = `⏱️ 스캔 중: ${kw.keyword}`;
+                // Select and Trigger
+                selectKeyword.value = kw.keyword;
+                await triggerScanImplicit(kw.keyword);
+            }
+            
+            alert('모든 키워드 스캔이 완료되었습니다. 히스토리 탭에서 결과를 확인하세요.');
+        } catch (err) {
+            alert('전체 스캔 중 오류: ' + err.message);
+        } finally {
+            btnBulkScan.disabled = false;
+            btnBulkScan.textContent = '🔥 모든 활성 키워드 전체 스캔';
+        }
+    }
+
+    async function triggerScanImplicit(keyword) {
+        const superSaveStr = inputSupersave.value;
+        const ssk = superSaveStr.split(',').map(s => s.trim()).filter(s => s);
+        
+        try {
+            await fetch('/api/search_single', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keyword, target_brand: '오즈키즈', super_save_keywords: ssk })
+            });
+        } catch (err) { console.error(`Scan failed for ${keyword}:`, err); }
+    }
+
+    if (btnBulkScan) btnBulkScan.addEventListener('click', runBulkScan);
 
     // Init
     loadMasterKeywords();

@@ -36,11 +36,24 @@ if not DATABASE_URL:
     DB_PATH = os.path.join(BASE_DIR, "ranking_history.db")
     DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-# PostgreSQL의 경우 pool_pre_ping 설정 추가 (연결 끊김 방지)
+# PostgreSQL의 경우 및 SQLAlchemy 설정 최적화
+connect_args = {}
+if DATABASE_URL and "postgresql" in DATABASE_URL:
+    # sslmode=require 강제 (Supabase 권장)
+    if "sslmode" not in DATABASE_URL:
+        DATABASE_URL += ("&" if "?" in DATABASE_URL else "?") + "sslmode=require"
+    connect_args = {"connect_timeout": 10}
+elif DATABASE_URL and DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+
+# Create engine with robust settings
 engine = create_engine(
     DATABASE_URL, 
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
-    pool_pre_ping=True
+    connect_args=connect_args,
+    pool_pre_ping=True,  # 연결 끊김 방지 (중요)
+    pool_recycle=300,    # 연결 재사용 주기 (5분)
+    pool_size=5,         # 커넥션 풀 크기
+    max_overflow=10      # 최대 초과 커넥션
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
