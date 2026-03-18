@@ -115,6 +115,14 @@ async def read_index():
 async def health_check():
     return {"status": "ok", "time": datetime.now().isoformat()}
 
+@app.get("/styles.css")
+async def read_styles():
+    return FileResponse(os.path.join(BASE_DIR, "styles.css"))
+
+@app.get("/app.js")
+async def read_js():
+    return FileResponse(os.path.join(BASE_DIR, "app.js"))
+
 class SingleSearchRequest(BaseModel):
     keyword: str
     target_brand: str
