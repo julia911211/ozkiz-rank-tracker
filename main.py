@@ -129,7 +129,8 @@ def diag():
     db_url = os.getenv("DATABASE_URL", "NOT SET")
     return {
         "db_url_len": len(db_url),
-        "db_url_prefix": db_url[:20] if db_url else "",
+        "db_url_prefix": db_url[:40] if db_url else "",
+        "db_url_suffix": db_url[-20:] if db_url else "",
         "cwd": os.getcwd(),
         "files": os.listdir(".")
     }
