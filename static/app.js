@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ keywords })
             });
-            textMasterInput.value = '';
+            // textMasterInput.value = ''; // 키워드 유지 요청으로 주석 처리
             alert('키워드 목록이 업데이트 되었습니다.');
             loadMasterKeywords();
         } catch (err) { alert('저장 실패: ' + err.message); }

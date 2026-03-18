@@ -44,9 +44,16 @@ if DATABASE_URL and "postgresql" in DATABASE_URL:
     # sslmode=require 강제 (Supabase 권장)
     if "sslmode" not in DATABASE_URL:
         DATABASE_URL += ("&" if "?" in DATABASE_URL else "?") + "sslmode=require"
-    # Increase timeout for cross-region stability
-    connect_args = {"connect_timeout": 30}
-    print("PostgreSQL connection args set with timeout=30")
+    
+    # EXTREME TIMEOUT: 60 seconds for cross-region stability (Render to Mumbai)
+    connect_args = {
+        "connect_timeout": 60,
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5
+    }
+    print("PostgreSQL connection args set with EXTREME timeout=60")
 elif DATABASE_URL and DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 
@@ -55,14 +62,14 @@ try:
     engine = create_engine(
         DATABASE_URL, 
         connect_args=connect_args,
-        pool_pre_ping=True,  # 연결 끊김 방지
-        pool_recycle=300,    # 5분 주기로 연결 갱신
-        pool_size=10,        # 풀 크기 확대
-        max_overflow=20      # 최대 초과 허용 범위 확대
+        pool_pre_ping=True,
+        pool_recycle=120,    # Recycle connections faster to avoid stale ones
+        pool_size=20,        # Increase pool size for concurrent requests
+        max_overflow=30      # Allow more overflow
     )
-    print("SQLAlchemy engine created successfully.")
+    print("SQLAlchemy engine created WITH ROBUST SETTINGS.")
 except Exception as e:
-    print(f"FAILED to create SQLAlchemy engine: {e}")
+    print(f"CRITICAL FAILURE creating engine: {e}")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
