@@ -72,12 +72,10 @@ scheduler = BackgroundScheduler()
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("서버 시작 및 DB 마이크레이션 확인 중...")
-    try:
-        run_migrations()
-        logger.info("DB 마이그레이션 성공")
-    except Exception as e:
-        logger.error(f"DB 마이그레이션 실패: {e}")
+    logger.info("서버 시작 중... (DB 초기화는 백그라운드에서 진행됩니다)")
+    # 포트 바인딩을 방해하지 않도록 배포 안정성을 위해 차단 해제
+    import threading
+    threading.Thread(target=run_migrations, daemon=True).start()
     
     logger.info("스케줄러 가동 확인...")
     try:
