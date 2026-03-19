@@ -43,19 +43,15 @@ if DATABASE_URL:
                 # Encode the password
                 encoded_pass = quote_plus(password)
                 
-                # SUPABASE POOLER HARDENING
-                # Most timeouts on port 5432 with Supabase poolers are due to session mode saturation.
-                # We FORCE port 6543 (Transaction Mode) which is much more stable for this use case.
-                if "pooler.supabase.com" in host_info:
-                    host_part = host_info.split(":")[0]
-                    host_info = f"{host_part}:6543"
-                    
-                    DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_info}/{rest.split('/')[-1].split('?')[0]}"
-                    print(f"FORCED SUPABASE TRANSACTION MODE: {host_info}")
-                else:
-                    DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_info}"
+                # Robustly rebuild the URL with encoded password but KEEP the host/port as defined
+                # Some environments (like Render) might have firewall issues with port 6543.
+                DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_info}/{rest.split('/')[-1].split('?')[0]}"
                 
-                print(f"DATABASE_URL robustly parsed. Host: {host_only}")
+                # Check for sslmode in original rest or add if missing
+                if "sslmode=require" not in DATABASE_URL and "postgresql" in DATABASE_URL:
+                    DATABASE_URL += "?sslmode=require"
+                
+                print(f"DATABASE_URL robustly parsed. Host: {host_info.split(':')[0]}")
             else:
                 print(f"DATABASE_URL host: {host_only}")
         except Exception as e:
