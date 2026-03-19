@@ -10,7 +10,7 @@ from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from database import (
     SessionLocal, RankHistory, TrackedKeyword,
-    save_rank_to_db, get_latest_rank, get_all_history, 
+    save_ranks_to_db, get_latest_rank, get_all_history, 
     get_all_tracked_keywords, add_tracked_keyword, remove_tracked_keyword,
     run_migrations
 )
@@ -93,8 +93,11 @@ async def startup_event():
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-# 프론트엔드 정적 파일 서빙
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# 프론트엔드 정적 파일 서빙 (디렉토리가 있을 때만 마운트하여 크래시 방지)
+if os.path.exists(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+else:
+    logger.warning(f"Static directory '{STATIC_DIR}' not found. Skipping mount.")
 
 @app.get("/")
 async def read_index():
@@ -154,6 +157,7 @@ def search_single(req: SingleSearchRequest):
     result = get_naver_shopping_rank(req.keyword, req.target_brand, req.super_save_keywords)
     
     if result["status"] == "success":
+        db_items = []
         for item in result.get("target_items", []):
             prev_record = get_latest_rank(req.keyword, item["title"])
             prev_rank = prev_record.rank_value if prev_record else None
@@ -166,14 +170,17 @@ def search_single(req: SingleSearchRequest):
             item["rank_diff"] = rank_diff
             item["prev_rank"] = prev_rank
             
-            save_rank_to_db(
-                keyword=req.keyword,
-                rank_display=item["rank_display"],
-                rank_value=current_rank,
-                title=item["title"],
-                link=item["link"],
-                image=item["image"]
-            )
+            db_items.append({
+                "keyword": req.keyword,
+                "rank_display": item["rank_display"],
+                "rank_value": current_rank,
+                "title": item["title"],
+                "link": item["link"],
+                "image": item["image"]
+            })
+            
+        if db_items:
+            save_ranks_to_db(db_items)
             
         if result.get("target_items"):
             result["rank_diff"] = result["target_items"][0].get("rank_diff")
@@ -181,21 +188,59 @@ def search_single(req: SingleSearchRequest):
     
     return result
 
-@app.post("/api/toggle_keyword_active")
-def toggle_keyword_active(req: dict):
-    keyword = req.get("keyword")
-    is_active = req.get("is_active", 1)
+class BulkSearchRequest(BaseModel):
+    target_brand: str = "오즈키즈"
+    super_save_keywords: list[str] = []
+
+@app.post("/api/search_bulk")
+def search_bulk(req: BulkSearchRequest):
+    """Performs a bulk scan of all active keywords. Runs in a threadpool (FastAPI 'def')."""
+    keywords = get_all_tracked_keywords()
+    if not keywords:
+        return {"status": "error", "message": "No active keywords found"}
+        
+    results = []
+    total = len(keywords)
     
-    db = SessionLocal()
-    try:
-        kw_obj = db.query(TrackedKeyword).filter(TrackedKeyword.keyword == keyword).first()
-        if kw_obj:
-            kw_obj.is_active = 1 if is_active else 0
-            db.commit()
-            return {"status": "success", "is_active": kw_obj.is_active}
-        return {"status": "error", "message": "Keyword not found"}
-    finally:
-        db.close()
+    for i, kw_obj in enumerate(keywords):
+        logger.info(f"Bulk scanning {i+1}/{total}: {kw_obj.keyword}")
+        try:
+            res = get_naver_shopping_rank(kw_obj.keyword, req.target_brand, req.super_save_keywords)
+            if res["status"] == "success":
+                db_items = []
+                for item in res.get("target_items", []):
+                    db_items.append({
+                        "keyword": kw_obj.keyword,
+                        "rank_display": item["rank_display"],
+                        "rank_value": item["rank"],
+                        "title": item["title"],
+                        "link": item["link"],
+                        "image": item["image"]
+                    })
+                if db_items:
+                    save_ranks_to_db(db_items)
+            results.append({"keyword": kw_obj.keyword, "status": res["status"]})
+            
+            # Anti-blocking sleep (synchronous in threaded def)
+            import time
+            time.sleep(1.5)
+        except Exception as e:
+            logger.error(f"Error scanning {kw_obj.keyword}: {e}")
+            err_str = str(e).lower()
+            if "timeout" in err_str or "connection" in err_str:
+                from database import engine
+                logger.warning("Radical reconnect: Disposing engine due to connection/timeout error.")
+                engine.dispose()
+            
+            results.append({"keyword": kw_obj.keyword, "status": "error", "message": str(e)})
+            
+    # If ALL results failed with the same error, we might want to return that
+    all_failed = all(r["status"] == "error" for r in results)
+    if all_failed and results:
+        return {"status": "error", "message": f"모든 키워드 스캔 실패: {results[0].get('message')}"}
+        
+    return {"status": "success", "results": results}
+
 
 @app.get("/api/get_history_grid")
 def get_history_grid():
@@ -307,18 +352,31 @@ def get_keywords():
 
 @app.post("/api/keywords")
 def update_keywords(req: dict):
-    new_keywords = req.get("keywords", [])
+    new_keywords = [k.strip() for k in req.get("keywords", []) if k.strip()]
     target_brand = req.get("target_brand", "오즈키즈")
     
-    current_kws = get_all_tracked_keywords()
-    for ck in current_kws:
-        remove_tracked_keyword(ck.keyword)
+    db = SessionLocal()
+    try:
+        # 1. 전체 삭제 (성능을 위해 한 번의 쿼리로 처리)
+        db.query(TrackedKeyword).delete()
         
-    for nk in new_keywords:
-        if nk.strip():
-            add_tracked_keyword(nk.strip(), target_brand)
+        # 2. 대량 추가 (Bulk Insert)
+        if new_keywords:
+            new_objs = [
+                TrackedKeyword(keyword=nk, target_brand=target_brand, is_active=1)
+                for nk in new_keywords
+            ]
+            db.add_all(new_objs)
             
-    return {"status": "success", "count": len(new_keywords)}
+        db.commit()
+        logger.info(f"Bulk saved {len(new_keywords)} keywords in 1 transaction.")
+        return {"status": "success", "count": len(new_keywords)}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Bulk save failed: {e}")
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()
 
 @app.post("/api/toggle_keyword_active")
 def toggle_keyword_active(req: dict):

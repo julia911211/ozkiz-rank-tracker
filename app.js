@@ -33,9 +33,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSaveMasterBulk = document.getElementById('btn-save-master-bulk');
     const listMasterKeywords = document.getElementById('list-master-keywords');
 
-    let currentResults = [];
+    let currentResults = JSON.parse(localStorage.getItem('last_scan_results') || '[]');
     let supersaveKeywords = JSON.parse(localStorage.getItem('supersave_keywords') || '[]');
     inputSupersave.value = supersaveKeywords.join(', ');
+
+    // Persistence: Selected Keyword
+    const savedSelectedKeyword = localStorage.getItem('last_selected_keyword');
+    
+    // Immediate save on input
+    inputSupersave.addEventListener('input', () => {
+        const val = inputSupersave.value;
+        const ssk = val.split(',').map(s => s.trim()).filter(s => s);
+        localStorage.setItem('supersave_keywords', JSON.stringify(ssk));
+    });
+
+    selectKeyword.addEventListener('change', () => {
+        localStorage.setItem('last_selected_keyword', selectKeyword.value);
+    });
+
+    // Master keyword input persistence
+    const savedMasterInput = localStorage.getItem('last_master_input');
+    if (savedMasterInput) textMasterInput.value = savedMasterInput;
+    
+    textMasterInput.addEventListener('input', () => {
+        localStorage.setItem('last_master_input', textMasterInput.value);
+    });
 
     // --- Tab Logic ---
     function switchTab(tab) {
@@ -104,9 +126,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     opt.textContent = `${kw.is_active ? '✅' : '💤'} ${kw.keyword}`;
                     selectKeyword.appendChild(opt);
                 });
+                
+                // Restore selection if it exists in the new list
+                if (savedSelectedKeyword) {
+                    selectKeyword.value = savedSelectedKeyword;
+                }
             }
         } catch (err) {
             console.error('Failed to load keywords:', err);
+            listMasterKeywords.innerHTML = `
+                <div class="p-4 bg-amber-50 border border-amber-100 rounded-xl text-amber-600 text-sm">
+                    ⚠️ <strong>데이터 로드 실패</strong><br>
+                    <p class='mt-1 opacity-80'>${err.message}</p>
+                </div>`;
         }
     }
 
@@ -218,18 +250,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (data.status === 'success') {
                 renderScanResults(data);
+                // Persistence
+                localStorage.setItem('last_scan_results', JSON.stringify(data));
             } else {
                 throw new Error(data.message || '스캔 실패');
             }
         } catch (err) {
             alert('오류 발생: ' + err.message);
-            scanEmpty.classList.remove('hidden');
+            if (!currentResults || currentResults.length === 0) {
+                scanEmpty.classList.remove('hidden');
+            } else {
+                scanContent.classList.remove('hidden');
+            }
         } finally {
             scanLoading.classList.add('hidden');
         }
     });
 
     function renderScanResults(data) {
+        if (!data || !data.target_items) {
+            scanEmpty.classList.remove('hidden');
+            scanContent.classList.add('hidden');
+            return;
+        }
+
+        scanEmpty.classList.add('hidden');
         scanContent.classList.remove('hidden');
         tbodyScan.innerHTML = '';
         currentResults = data.target_items || [];
@@ -412,40 +457,84 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnBulkScan = document.getElementById('btn-bulk-scan');
     
     async function runBulkScan() {
+        console.log('runBulkScan triggered - Sequential Mode');
+        
         try {
-            const response = await fetch('/api/keywords');
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error('데이터베이스 연결이 원활하지 않습니다.\n\n오류: ' + data.error);
-            }
-            
-            if (!Array.isArray(data)) {
-                throw new Error('데이터 형식이 올바르지 않습니다.');
-            }
-
-            const activeKws = data.filter(k => k.is_active);
-            
-            if (activeKws.length === 0) return alert('활성화된 키워드가 없습니다.');
-            
-            if (!confirm(`총 ${activeKws.length}개의 키워드를 순차적으로 스캔하시겠습니까? (시간이 소요될 수 있습니다)`)) return;
+            const superSaveStr = inputSupersave.value;
+            const ssk = superSaveStr.split(',').map(s => s.trim()).filter(s => s);
             
             btnBulkScan.disabled = true;
-            btnBulkScan.textContent = '⏱️ 전체 스캔 진행 중...';
+            btnBulkScan.innerHTML = `<span>준비 중...</span>`;
+
+            const kwResp = await fetch('/api/keywords');
+            const kwData = await kwResp.json();
             
-            for (const kw of activeKws) {
-                btnBulkScan.textContent = `⏱️ 스캔 중: ${kw.keyword}`;
-                // Select and Trigger
-                selectKeyword.value = kw.keyword;
-                await triggerScanImplicit(kw.keyword);
+            if (kwData.error) throw new Error(kwData.error);
+            const activeKws = kwData.filter(k => k.is_active === 1 || k.is_active === true);
+            
+            if (activeKws.length === 0) {
+                alert('활성화된 키워드가 없습니다.');
+                btnBulkScan.disabled = false;
+                btnBulkScan.innerHTML = `<span>🔥 모든 활성 키워드 전체 스캔</span>`;
+                return;
             }
             
-            alert('모든 키워드 스캔이 완료되었습니다. 히스토리 탭에서 결과를 확인하세요.');
+            if (!confirm(`총 ${activeKws.length}개의 키워드를 순차적으로 스캔하시겠습니까?\n(중간에 페이지를 닫지 마세요)`)) {
+                btnBulkScan.disabled = false;
+                btnBulkScan.innerHTML = `<span>🔥 모든 활성 키워드 전체 스캔</span>`;
+                return;
+            }
+
+            // Sequential Execution
+            let successCount = 0;
+            let failCount = 0;
+
+            for (let i = 0; i < activeKws.length; i++) {
+                const kw = activeKws[i].keyword;
+                btnBulkScan.innerHTML = `
+                    <span class="flex items-center gap-2">
+                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        스캔 중 (${i + 1}/${activeKws.length}): ${kw}
+                    </span>`;
+                
+                try {
+                    const res = await fetch('/api/search_single', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ keyword: kw, target_brand: '오즈키즈', super_save_keywords: ssk })
+                    });
+                    const data = await res.json();
+                    if (data.status === 'success') {
+                        successCount++;
+                        // If this matches the currently selected keyword in UI, refresh the UI results
+                        if (selectKeyword.value === kw) {
+                            renderScanResults(data);
+                            localStorage.setItem('last_scan_results', JSON.stringify(data));
+                        }
+                    } else {
+                        failCount++;
+                    }
+                } catch (e) {
+                    console.error(`Error scanning ${kw}:`, e);
+                    failCount++;
+                }
+                
+                // Small delay to prevent rate limiting
+                await new Promise(r => setTimeout(r, 1000));
+            }
+
+            alert(`벌크 스캔 완료!\n성공: ${successCount}\n실패: ${failCount}`);
+            loadHistory(); 
+
         } catch (err) {
-            alert('전체 스캔 중 오류:\n' + err.message);
+            console.error('runBulkScan error:', err);
+            alert('벌크 스캔 시작 중 오류 발생: ' + err.message);
         } finally {
             btnBulkScan.disabled = false;
-            btnBulkScan.textContent = '🔥 모든 활성 키워드 전체 스캔';
+            btnBulkScan.innerHTML = `<span>🔥 모든 활성 키워드 전체 스캔</span>`;
         }
     }
 
@@ -467,4 +556,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Init
     loadMasterKeywords();
     loadHistory();
+    // Render last results if they exist
+    const lastResults = JSON.parse(localStorage.getItem('last_scan_results') || 'null');
+    if (lastResults) {
+        renderScanResults(lastResults);
+    }
 });

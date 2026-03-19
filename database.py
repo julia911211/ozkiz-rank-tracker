@@ -17,19 +17,44 @@ if DATABASE_URL:
     if "@" in DATABASE_URL:
         try:
             from urllib.parse import quote_plus
+            import socket
             # Split from the RIGHT to correctly handle '@' in passwords
             # Format: postgresql://user:pass@host:port/db
             prefix, rest = DATABASE_URL.split("://", 1)
             user_info, host_info = rest.rsplit("@", 1) # Find the LAST @
             
+            # DNS Resolution Diagnostic
+            host_only = host_info.split(":")[0].split("/")[0].split("?")[0]
+            try:
+                resolved_ips = socket.getaddrinfo(host_only, None)
+                print(f"DNS RESOLUTION: {host_only} -> {[x[4][0] for x in resolved_ips]}")
+            except Exception as dns_err:
+                print(f"DNS RESOLUTION FAILED for {host_only}: {dns_err}")
+
             if ":" in user_info:
                 user, password = user_info.split(":", 1)
                 # Encode the password
                 encoded_pass = quote_plus(password)
-                DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_info}"
-                print(f"DATABASE_URL password encoded. Host: {host_info.split(':')[0]} (Robustly parsed)")
+                
+                # SUPABASE POOLER HARDENING
+                # Most timeouts on port 5432 with Supabase poolers are due to session mode saturation.
+                # We FORCE port 6543 (Transaction Mode) which is much more stable for this use case.
+                if "pooler.supabase.com" in host_info:
+                    host_part = host_info.split(":")[0]
+                    host_info = f"{host_part}:6543"
+                    if "pgbouncer=true" not in DATABASE_URL:
+                        DATABASE_URL_QUERY = "&pgbouncer=true" if "?" in rest else "?pgbouncer=true"
+                    else:
+                        DATABASE_URL_QUERY = ""
+                    
+                    DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_info}/{rest.split('/')[-1].split('?')[0]}{DATABASE_URL_QUERY}"
+                    print(f"FORCED SUPABASE TRANSACTION MODE: {host_info}")
+                else:
+                    DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_info}"
+                
+                print(f"DATABASE_URL robustly parsed. Host: {host_only}")
             else:
-                print(f"DATABASE_URL host: {host_info.split(':')[0]}")
+                print(f"DATABASE_URL host: {host_only}")
         except Exception as e:
             print(f"Error robustly parsing/encoding DATABASE_URL: {e}")
 
@@ -38,36 +63,39 @@ if not DATABASE_URL:
     DB_PATH = os.path.join(BASE_DIR, "ranking_history.db")
     DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-# PostgreSQL의 경우 및 SQLAlchemy 설정 최적화
+# PostgreSQL-specific connection optimization
 connect_args = {}
 if DATABASE_URL and "postgresql" in DATABASE_URL:
-    # sslmode=require 강제 (Supabase 권장)
+    # sslmode=require is mandatory for Supabase
     if "sslmode" not in DATABASE_URL:
         DATABASE_URL += ("&" if "?" in DATABASE_URL else "?") + "sslmode=require"
     
-    # EXTREME TIMEOUT: 60 seconds for cross-region stability (Render to Mumbai)
+    # ULTIMATE TIMEOUT: 90 seconds for high-latency cross-region stability
+    # Also adding tcp_user_timeout to fail fast on dead sockets
     connect_args = {
-        "connect_timeout": 60,
+        "connect_timeout": 90,
         "keepalives": 1,
-        "keepalives_idle": 30,
+        "keepalives_idle": 20,
         "keepalives_interval": 10,
-        "keepalives_count": 5
+        "keepalives_count": 5,
+        "options": "-c idle_in_transaction_session_timeout=60000" # 60s
     }
-    print("PostgreSQL connection args set with EXTREME timeout=60")
+    print("PostgreSQL connection args set with ULTIMATE timeout=90s")
 elif DATABASE_URL and DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 
-# Create engine with robust settings
+# Create engine with robust settings for Render/Supabase environment
 try:
     engine = create_engine(
         DATABASE_URL, 
         connect_args=connect_args,
-        pool_pre_ping=True,
-        pool_recycle=120,    # Recycle connections faster to avoid stale ones
-        pool_size=20,        # Increase pool size for concurrent requests
-        max_overflow=30      # Allow more overflow
+        pool_pre_ping=True,      # Check connection validity before using
+        pool_recycle=45,         # Even faster recycle
+        pool_size=5,             # REDUCED: Don't overwhelm the remote pooler
+        max_overflow=8,          # Allow some burst but keep it tight
+        pool_timeout=60          # Wait longer for a pool connection from the pool
     )
-    print("SQLAlchemy engine created WITH ROBUST SETTINGS.")
+    print(f"SQLAlchemy engine created WITH ULTIMATE SETTINGS (Pool: 5/8).")
 except Exception as e:
     print(f"CRITICAL FAILURE creating engine: {e}")
 
@@ -98,6 +126,33 @@ class TrackedKeyword(Base):
 # run_migrations()에서 처리함
 # Base.metadata.create_all(bind=engine)
 
+def retry_on_db_error(retries=3, delay=2):
+    """Decorator to retry database operations on transient connection errors."""
+    import time
+    from functools import wraps
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            last_err = None
+            for i in range(retries):
+                try:
+                    return f(*args, **kwargs)
+                except Exception as e:
+                    last_err = e
+                    # Check for timeout or connection errors
+                    err_str = str(e).lower()
+                    if "timeout" in err_str or "connection" in err_str or "operationalerror" in err_str:
+                        print(f"DB Error (Attempt {i+1}/{retries}): {e}. Retrying in {delay}s...")
+                        time.sleep(delay)
+                        continue
+                    raise # Non-transient error
+            print(f"DB operation failed after {retries} attempts.")
+            raise last_err
+        return wrapper
+    return decorator
+
+# apply retry to migrations if needed
+@retry_on_db_error(retries=5, delay=3)
 def run_migrations():
     print("Database initialization and migration starting...")
     # 테이블 생성 (스키마 반영)
@@ -106,49 +161,55 @@ def run_migrations():
         print("Base.metadata.create_all success")
     except Exception as e:
         print(f"Base.metadata.create_all failed: {e}")
-
-    db = SessionLocal()
-    try:
-        from sqlalchemy import text
-        # Add is_active column if missing
-        print("Checking for is_active column...")
-        try:
-            # Try to select the column to see if it exists
-            db.execute(text("SELECT is_active FROM tracked_keywords LIMIT 1"))
-            print("'is_active' column already exists.")
-        except Exception:
-            print("'is_active' column missing, attempting to add...")
-            try:
-                db.rollback() # Clear failed transaction
-                db.execute(text("ALTER TABLE tracked_keywords ADD COLUMN is_active INTEGER DEFAULT 1"))
-                db.commit()
-                print("Column 'is_active' added successfully.")
-            except Exception as e2:
-                print(f"Failed to add column: {e2}")
-                db.rollback()
-    except Exception as e:
-        print(f"Migration processing error: {e}")
-    finally:
-        db.close()
+        raise # important for retry
 
 # run_migrations()  # Moved to main.py startup for safety
 
 def save_rank_to_db(keyword: str, rank_display: str, rank_value: int, title: str, link: str, image: str):
+    """Saves a single rank record to the database."""
+    items = [{
+        "keyword": keyword,
+        "rank_display": rank_display,
+        "rank_value": rank_value,
+        "title": title,
+        "link": link,
+        "image": image
+    }]
+    save_ranks_to_db(items)
+
+@retry_on_db_error(retries=3, delay=2)
+def save_ranks_to_db(items: list):
+    """
+    Saves multiple rank records to the database in a single transaction.
+    Expected item structure: {'keyword', 'rank_display', 'rank_value', 'title', 'link', 'image'}
+    """
+    if not items:
+        return
+        
     db = SessionLocal()
     try:
-        new_entry = RankHistory(
-            keyword=keyword,
-            rank_display=rank_display,
-            rank_value=rank_value,
-            product_title=title,
-            product_link=link,
-            product_image=image
-        )
-        db.add(new_entry)
+        new_entries = []
+        for item in items:
+            new_entry = RankHistory(
+                keyword=item["keyword"],
+                rank_display=item["rank_display"],
+                rank_value=item["rank_value"],
+                product_title=item["title"],
+                product_link=item["link"],
+                product_image=item["image"]
+            )
+            new_entries.append(new_entry)
+        
+        db.add_all(new_entries)
         db.commit()
+    except Exception as e:
+        print(f"Database bulk save error: {e}")
+        db.rollback()
+        raise
     finally:
         db.close()
 
+@retry_on_db_error(retries=3, delay=1)
 def get_latest_rank(keyword: str, title: str):
     db = SessionLocal()
     try:
@@ -160,6 +221,7 @@ def get_latest_rank(keyword: str, title: str):
     finally:
         db.close()
 
+@retry_on_db_error(retries=3, delay=1)
 def get_all_history():
     db = SessionLocal()
     try:
@@ -169,6 +231,7 @@ def get_all_history():
         db.close()
 
 # --- 키워드 관리 함수 ---
+@retry_on_db_error(retries=3, delay=1)
 def get_all_tracked_keywords(include_inactive: bool = False):
     db = SessionLocal()
     try:
@@ -179,6 +242,7 @@ def get_all_tracked_keywords(include_inactive: bool = False):
     finally:
         db.close()
 
+@retry_on_db_error(retries=3, delay=2)
 def add_tracked_keyword(keyword: str, target_brand: str = "오즈키즈"):
     db = SessionLocal()
     try:
@@ -193,6 +257,7 @@ def add_tracked_keyword(keyword: str, target_brand: str = "오즈키즈"):
     finally:
         db.close()
 
+@retry_on_db_error(retries=3, delay=2)
 def remove_tracked_keyword(keyword: str):
     db = SessionLocal()
     try:
