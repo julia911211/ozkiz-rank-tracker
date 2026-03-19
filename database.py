@@ -18,20 +18,27 @@ if DATABASE_URL:
         url_str = re.sub(r'([?&])pgbouncer=[^&]*(&|$)', r'\1', url_str, flags=re.IGNORECASE)
         url_str = url_str.rstrip('?&').replace("?&", "?")
         
-        # 3. SQLAlchemy URL Parsing
-        u = make_url(url_str)
-        
-        # 4. Emergency Routing: Switch from Pooler to Direct Connection
-        # Pooler (pooler.supabase.com) is timing out on both ports 5432/6543.
-        if u.host and "pooler.supabase.com" in u.host:
-            if u.username and "." in u.username:
-                project_ref = u.username.split(".")[-1]
-                new_host = f"db.{project_ref}.supabase.co"
-                u = u.set(host=new_host, port=5432)
-                print(f"SWITCHED TO DIRECT CONNECTION: {new_host}:5432")
-            else:
-                # Force 5432 if we can't derive project_ref
-                u = u.set(port=5432)
+        # 4. Emergency Routing & IPv4 Forcing
+        # Pooler is blocked; Direct is often IPv6 only on Render.
+        # We manually resolve to IPv4 to bypass Render's IPv6 limitations.
+        if u.host:
+            target_host = u.host
+            if "pooler.supabase.com" in target_host:
+                if u.username and "." in u.username:
+                    project_ref = u.username.split(".")[-1]
+                    target_host = f"db.{project_ref}.supabase.co"
+            
+            try:
+                import socket
+                # AF_INET forces IPv4
+                ais = socket.getaddrinfo(target_host, u.port or 5432, socket.AF_INET)
+                if ais:
+                    ipv4_address = ais[0][4][0]
+                    u = u.set(host=ipv4_address)
+                    print(f"FORCED IPv4 RESOLUTION: {target_host} -> {ipv4_address}")
+            except Exception as dns_err:
+                print(f"IPv4 resolution failed for {target_host}: {dns_err}")
+                u = u.set(host=target_host) # Fallback to name
             
         # 5. SSL Enforcement (psycopg2 style inside query OR connect_args)
         # We'll put it in query and also in connect_args for double safety
