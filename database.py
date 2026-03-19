@@ -1,65 +1,44 @@
 import os
+import re
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine.url import make_url
 
-# DB 설정 (Render - Supabase 연동 대비)
+# --- DB 설정 (Robust Reconstruction) ---
 DATABASE_URL = os.getenv("DATABASE_URL")
+
 if DATABASE_URL:
-    # Aggressive cleaning of invisible chars
-    DATABASE_URL = "".join(DATABASE_URL.split()) # Remove ALL whitespace/newlines
-    
-    if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    
-    # CRITICAL: Robust removal of pgbouncer parameter for psycopg2 compatibility
-    # Handles variations like ?pgbouncer=true, &pgbouncer=True, etc. accurately.
-    import re
-    DATABASE_URL = re.sub(r'([?&])pgbouncer=[^&]*(&|$)', r'\1', DATABASE_URL, flags=re.IGNORECASE)
-    DATABASE_URL = DATABASE_URL.replace("?&", "?").replace("&&", "&").strip("?").strip("&")
-    print("ROBUSTLY STRIPPED pgbouncer from DATABASE_URL for compatibility.")
-    
-    # URL Encoding for password (if special characters like ! # @ exist)
-    if "@" in DATABASE_URL:
-        try:
-            from urllib.parse import quote_plus
-            import socket
-            # Split from the RIGHT to correctly handle '@' in passwords
-            # Format: postgresql://user:pass@host:port/db
-            prefix, rest = DATABASE_URL.split("://", 1)
-            user_info, host_info = rest.rsplit("@", 1) # Find the LAST @
+    try:
+        # 1. Basic cleanup
+        url_str = DATABASE_URL.strip().replace("postgres://", "postgresql://", 1)
+        
+        # 2. Case-insensitive pgbouncer stripping
+        url_str = re.sub(r'([?&])pgbouncer=[^&]*(&|$)', r'\1', url_str, flags=re.IGNORECASE)
+        url_str = url_str.rstrip('?&').replace("?&", "?")
+        
+        # 3. SQLAlchemy URL Parsing
+        u = make_url(url_str)
+        
+        # 4. Supabase Pooler Port Handling (Force Transaction Mode 6543)
+        if u.host and "pooler.supabase.com" in u.host:
+            u = u.set(port=6543)
+            print(f"FORCED SUPABASE POOLER PORT: 6543 for host {u.host}")
             
-            # DNS Resolution Diagnostic
-            host_only = host_info.split(":")[0].split("/")[0].split("?")[0]
-            try:
-                resolved_ips = socket.getaddrinfo(host_only, None)
-                print(f"DNS RESOLUTION: {host_only} -> {[x[4][0] for x in resolved_ips]}")
-            except Exception as dns_err:
-                print(f"DNS RESOLUTION FAILED for {host_only}: {dns_err}")
-
-            if ":" in user_info:
-                user, password = user_info.split(":", 1)
-                # Encode the password
-                encoded_pass = quote_plus(password)
-                
-                # SUPABASE POOLER HARDENING (TRY PORT 6543 AGAIN WITH FIXED URL STRUCTURE)
-                # Port 5432 is timing out; 6543 is Transaction Mode and often more stable.
-                if "pooler.supabase.com" in host_info:
-                    host_part = host_info.split(":")[0]
-                    host_only_part = f"{host_part}:6543"
-                else:
-                    host_only_part = host_info
-
-                # Robustly rebuild the URL with encoded password and correct path
-                DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_only_part}/{db_name}"
-                
-                # sslmode will be handled in connect_args for better compatibility
-                print(f"DATABASE_URL robustly rebuilt. Host: {host_only_part.split(':')[0]}, Port: {host_only_part.split(':')[-1] if ':' in host_only_part else '5432'}")
-            else:
-                print(f"DATABASE_URL host: {host_only}")
-        except Exception as e:
-            print(f"Error robustly parsing/encoding DATABASE_URL: {e}")
+        # 5. SSL Enforcement (psycopg2 style inside query OR connect_args)
+        # We'll put it in query and also in connect_args for double safety
+        query = dict(u.query)
+        query["sslmode"] = "require"
+        u = u.set(query=query)
+        
+        DATABASE_URL = str(u)
+        print(f"DATABASE_URL successfully rebuilt and sanitized.")
+    except Exception as e:
+        print(f"Error robustly parsing/rebuilding DATABASE_URL: {e}")
+        # Very simple fallback if all else fails
+        if DATABASE_URL.startswith("postgres://"):
+            DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 if not DATABASE_URL:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
