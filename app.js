@@ -213,15 +213,19 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             btnSaveMasterBulk.disabled = true;
             btnSaveMasterBulk.textContent = '저장 중...';
-            await fetch('/api/keywords', {
+            const response = await fetch('/api/keywords', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ keywords })
             });
-            // textMasterInput.value = ''; // 키워드 유지 요청으로 주석 처리
-            alert('키워드 목록이 업데이트 되었습니다.');
-            loadMasterKeywords();
-        } catch (err) { alert('저장 실패: ' + err.message); }
+            const data = await response.json();
+            if (data.status === 'success') {
+                alert('키워드 목록이 업데이트 되었습니다.');
+                loadMasterKeywords();
+            } else {
+                alert('저장 실패: ' + (data.message || '알 수 없는 오류'));
+            }
+        } catch (err) { alert('통신 실패: ' + err.message); }
         finally {
             btnSaveMasterBulk.disabled = false;
             btnSaveMasterBulk.textContent = '리스트 업데이트';

@@ -355,10 +355,13 @@ def update_keywords(req: dict):
     new_keywords = [k.strip() for k in req.get("keywords", []) if k.strip()]
     target_brand = req.get("target_brand", "오즈키즈")
     
+    # 0. 중복 제거
+    new_keywords = list(dict.fromkeys(new_keywords)) # Order-preserving de-duplication
+    
     db = SessionLocal()
     try:
-        # 1. 전체 삭제 (성능을 위해 한 번의 쿼리로 처리)
-        db.query(TrackedKeyword).delete()
+        # 1. 전체 삭제 (synchronize_session=False로 성능 최적화)
+        db.query(TrackedKeyword).delete(synchronize_session=False)
         
         # 2. 대량 추가 (Bulk Insert)
         if new_keywords:
@@ -369,7 +372,7 @@ def update_keywords(req: dict):
             db.add_all(new_objs)
             
         db.commit()
-        logger.info(f"Bulk saved {len(new_keywords)} keywords in 1 transaction.")
+        logger.info(f"Bulk saved {len(new_keywords)} unique keywords in 1 transaction.")
         return {"status": "success", "count": len(new_keywords)}
     except Exception as e:
         db.rollback()

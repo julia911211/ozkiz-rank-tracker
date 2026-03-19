@@ -42,12 +42,8 @@ if DATABASE_URL:
                 if "pooler.supabase.com" in host_info:
                     host_part = host_info.split(":")[0]
                     host_info = f"{host_part}:6543"
-                    if "pgbouncer=true" not in DATABASE_URL:
-                        DATABASE_URL_QUERY = "&pgbouncer=true" if "?" in rest else "?pgbouncer=true"
-                    else:
-                        DATABASE_URL_QUERY = ""
                     
-                    DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_info}/{rest.split('/')[-1].split('?')[0]}{DATABASE_URL_QUERY}"
+                    DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_info}/{rest.split('/')[-1].split('?')[0]}"
                     print(f"FORCED SUPABASE TRANSACTION MODE: {host_info}")
                 else:
                     DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_info}"
