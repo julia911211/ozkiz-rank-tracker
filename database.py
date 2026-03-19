@@ -43,22 +43,19 @@ if DATABASE_URL:
                 # Encode the password
                 encoded_pass = quote_plus(password)
                 
-                # Split host_info safely into host and db name
-                if "/" in host_info:
-                    host_only_part, path_part = host_info.split("/", 1)
-                    db_name = path_part.split("?")[0]
+                # SUPABASE POOLER HARDENING (TRY PORT 6543 AGAIN WITH FIXED URL STRUCTURE)
+                # Port 5432 is timing out; 6543 is Transaction Mode and often more stable.
+                if "pooler.supabase.com" in host_info:
+                    host_part = host_info.split(":")[0]
+                    host_only_part = f"{host_part}:6543"
                 else:
                     host_only_part = host_info
-                    db_name = "postgres"
 
                 # Robustly rebuild the URL with encoded password and correct path
                 DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_only_part}/{db_name}"
                 
-                # Ensure sslmode=require
-                if "sslmode=require" not in DATABASE_URL and "postgresql" in DATABASE_URL:
-                    DATABASE_URL += "?sslmode=require"
-                
-                print(f"DATABASE_URL robustly rebuilt. Host: {host_only_part.split(':')[0]}, DB: {db_name}")
+                # sslmode will be handled in connect_args for better compatibility
+                print(f"DATABASE_URL robustly rebuilt. Host: {host_only_part.split(':')[0]}, Port: {host_only_part.split(':')[-1] if ':' in host_only_part else '5432'}")
             else:
                 print(f"DATABASE_URL host: {host_only}")
         except Exception as e:
@@ -72,13 +69,12 @@ if not DATABASE_URL:
 # PostgreSQL-specific connection optimization
 connect_args = {}
 if DATABASE_URL and "postgresql" in DATABASE_URL:
-    # sslmode=require is mandatory for Supabase
-    if "sslmode" not in DATABASE_URL:
-        DATABASE_URL += ("&" if "?" in DATABASE_URL else "?") + "sslmode=require"
+    # sslmode will be handled in connect_args below
     
-    # FAST FAIL for Render startup: 10s instead of 90s
+    # 30s timeout is more reasonable for cross-region
     connect_args = {
-        "connect_timeout": 10, 
+        "sslmode": "require",
+        "connect_timeout": 30, 
         "keepalives": 1,
         "keepalives_idle": 20,
         "keepalives_interval": 10,
