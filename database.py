@@ -69,17 +69,16 @@ if DATABASE_URL and "postgresql" in DATABASE_URL:
     if "sslmode" not in DATABASE_URL:
         DATABASE_URL += ("&" if "?" in DATABASE_URL else "?") + "sslmode=require"
     
-    # ULTIMATE TIMEOUT: 90 seconds for high-latency cross-region stability
-    # Also adding tcp_user_timeout to fail fast on dead sockets
+    # FAST FAIL for Render startup: 10s instead of 90s
     connect_args = {
-        "connect_timeout": 90,
+        "connect_timeout": 10, 
         "keepalives": 1,
         "keepalives_idle": 20,
         "keepalives_interval": 10,
         "keepalives_count": 5,
-        "options": "-c idle_in_transaction_session_timeout=60000" # 60s
+        "options": "-c idle_in_transaction_session_timeout=30000" # 30s
     }
-    print("PostgreSQL connection args set with ULTIMATE timeout=90s")
+    print("PostgreSQL connection args set with FAST FAIL timeout=10s")
 elif DATABASE_URL and DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 
@@ -151,7 +150,8 @@ def retry_on_db_error(retries=3, delay=2):
     return decorator
 
 # apply retry to migrations if needed
-@retry_on_db_error(retries=5, delay=3)
+# Reduced retries for Render startup safety
+@retry_on_db_error(retries=2, delay=2)
 def run_migrations():
     print("Database initialization and migration starting...")
     # 테이블 생성 (스키마 반영)
