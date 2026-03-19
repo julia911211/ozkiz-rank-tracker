@@ -21,10 +21,17 @@ if DATABASE_URL:
         # 3. SQLAlchemy URL Parsing
         u = make_url(url_str)
         
-        # 4. Supabase Pooler Port Handling (Force Transaction Mode 6543)
+        # 4. Emergency Routing: Switch from Pooler to Direct Connection
+        # Pooler (pooler.supabase.com) is timing out on both ports 5432/6543.
         if u.host and "pooler.supabase.com" in u.host:
-            u = u.set(port=6543)
-            print(f"FORCED SUPABASE POOLER PORT: 6543 for host {u.host}")
+            if u.username and "." in u.username:
+                project_ref = u.username.split(".")[-1]
+                new_host = f"db.{project_ref}.supabase.co"
+                u = u.set(host=new_host, port=5432)
+                print(f"SWITCHED TO DIRECT CONNECTION: {new_host}:5432")
+            else:
+                # Force 5432 if we can't derive project_ref
+                u = u.set(port=5432)
             
         # 5. SSL Enforcement (psycopg2 style inside query OR connect_args)
         # We'll put it in query and also in connect_args for double safety
