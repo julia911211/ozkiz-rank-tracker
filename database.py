@@ -18,9 +18,10 @@ if DATABASE_URL:
         url_str = re.sub(r'([?&])pgbouncer=[^&]*(&|$)', r'\1', url_str, flags=re.IGNORECASE)
         url_str = url_str.rstrip('?&').replace("?&", "?")
         
+        # 3. SQLAlchemy URL Parsing (CRITICAL FIX: Added missing line)
+        u = make_url(url_str)
+        
         # 4. Emergency Routing & IPv4 Forcing
-        # Pooler is blocked; Direct is often IPv6 only on Render.
-        # We manually resolve to IPv4 to bypass Render's IPv6 limitations.
         if u.host:
             target_host = u.host
             if "pooler.supabase.com" in target_host:
