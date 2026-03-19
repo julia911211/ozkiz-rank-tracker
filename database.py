@@ -43,15 +43,22 @@ if DATABASE_URL:
                 # Encode the password
                 encoded_pass = quote_plus(password)
                 
-                # Robustly rebuild the URL with encoded password but KEEP the host/port as defined
-                # Some environments (like Render) might have firewall issues with port 6543.
-                DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_info}/{rest.split('/')[-1].split('?')[0]}"
+                # Split host_info safely into host and db name
+                if "/" in host_info:
+                    host_only_part, path_part = host_info.split("/", 1)
+                    db_name = path_part.split("?")[0]
+                else:
+                    host_only_part = host_info
+                    db_name = "postgres"
+
+                # Robustly rebuild the URL with encoded password and correct path
+                DATABASE_URL = f"{prefix}://{user}:{encoded_pass}@{host_only_part}/{db_name}"
                 
-                # Check for sslmode in original rest or add if missing
+                # Ensure sslmode=require
                 if "sslmode=require" not in DATABASE_URL and "postgresql" in DATABASE_URL:
                     DATABASE_URL += "?sslmode=require"
                 
-                print(f"DATABASE_URL robustly parsed. Host: {host_info.split(':')[0]}")
+                print(f"DATABASE_URL robustly rebuilt. Host: {host_only_part.split(':')[0]}, DB: {db_name}")
             else:
                 print(f"DATABASE_URL host: {host_only}")
         except Exception as e:
