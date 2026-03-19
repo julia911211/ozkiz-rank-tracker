@@ -13,13 +13,12 @@ if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     
-    # CRITICAL: Strip pgbouncer=true if it exists in the incoming environment variable
-    # psycopg2 does not recognize it and throws "invalid connection option"
-    if "pgbouncer=true" in DATABASE_URL:
-        DATABASE_URL = DATABASE_URL.replace("pgbouncer=true", "")
-        # Clean up dangling ? or &
-        DATABASE_URL = DATABASE_URL.replace("?&", "?").replace("&&", "&").strip("?").strip("&")
-        print("STRIPPED pgbouncer=true from DATABASE_URL for compatibility.")
+    # CRITICAL: Robust removal of pgbouncer parameter for psycopg2 compatibility
+    # Handles variations like ?pgbouncer=true, &pgbouncer=True, etc. accurately.
+    import re
+    DATABASE_URL = re.sub(r'([?&])pgbouncer=[^&]*(&|$)', r'\1', DATABASE_URL, flags=re.IGNORECASE)
+    DATABASE_URL = DATABASE_URL.replace("?&", "?").replace("&&", "&").strip("?").strip("&")
+    print("ROBUSTLY STRIPPED pgbouncer from DATABASE_URL for compatibility.")
     
     # URL Encoding for password (if special characters like ! # @ exist)
     if "@" in DATABASE_URL:
