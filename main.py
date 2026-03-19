@@ -129,22 +129,35 @@ async def read_js():
 @app.get("/api/diag")
 def diag():
     import os
-    db_url = os.getenv("DATABASE_URL", "NOT SET")
-    masked_url = db_url
-    if db_url and "@" in db_url:
+    import subprocess
+    from database import DATABASE_URL as PROCESSED_URL
+    
+    raw_url = os.getenv("DATABASE_URL", "NOT SET")
+    
+    def mask(u):
+        if not u or "@" not in u: return u
         try:
-            parts = db_url.split("@")
+            parts = u.split("@")
             prefix = parts[0].split(":")
             if len(prefix) > 2:
-                masked_url = f"{prefix[0]}:{prefix[1]}:****@{parts[1]}"
-        except:
-            masked_url = "Error masking URL"
-            
+                return f"{prefix[0]}:{prefix[1]}:****@{parts[1]}"
+        except: pass
+        return "Error masking"
+
+    # Get last git commit
+    try:
+        last_commit = subprocess.check_output(["git", "log", "-1", "--pretty=format:%h - %s"], encoding="utf-8")
+    except:
+        last_commit = "Unknown"
+
     return {
-        "db_url_masked": masked_url,
-        "db_url_len": len(db_url),
+        "raw_env_url_len": len(raw_url),
+        "raw_env_url_masked": mask(raw_url),
+        "processed_url_len": len(PROCESSED_URL),
+        "processed_url_masked": mask(PROCESSED_URL),
+        "last_commit": last_commit,
         "cwd": os.getcwd(),
-        "files": os.listdir(".")
+        "files_count": len(os.listdir("."))
     }
 
 class SingleSearchRequest(BaseModel):
