@@ -6,52 +6,31 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine.url import make_url
 
-# --- DB 설정 (Robust Reconstruction) ---
+# --- DB 설정 (Simplified & Robust) ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
     try:
-        # 1. Basic cleanup
+        # 1. Standard Cleanup
         url_str = DATABASE_URL.strip().replace("postgres://", "postgresql://", 1)
         
-        # 2. Case-insensitive pgbouncer stripping
-        url_str = re.sub(r'([?&])pgbouncer=[^&]*(&|$)', r'\1', url_str, flags=re.IGNORECASE)
+        # 2. Strict pgbouncer stripping (Essential for psycopg2)
+        url_str = re.sub(r'([?&])pgbouncer=[^&]*(&|$)', r'\\1', url_str, flags=re.IGNORECASE)
         url_str = url_str.rstrip('?&').replace("?&", "?")
         
-        # 3. SQLAlchemy URL Parsing (CRITICAL FIX: Added missing line)
+        # 3. Simple URL parsing
         u = make_url(url_str)
         
-        # 4. Emergency Routing & IPv4 Forcing
-        if u.host:
-            target_host = u.host
-            if "pooler.supabase.com" in target_host:
-                if u.username and "." in u.username:
-                    project_ref = u.username.split(".")[-1]
-                    target_host = f"db.{project_ref}.supabase.co"
-            
-            try:
-                import socket
-                # AF_INET forces IPv4
-                ais = socket.getaddrinfo(target_host, u.port or 5432, socket.AF_INET)
-                if ais:
-                    ipv4_address = ais[0][4][0]
-                    u = u.set(host=ipv4_address)
-                    print(f"FORCED IPv4 RESOLUTION: {target_host} -> {ipv4_address}")
-            except Exception as dns_err:
-                print(f"IPv4 resolution failed for {target_host}: {dns_err}")
-                u = u.set(host=target_host) # Fallback to name
-            
-        # 5. SSL Enforcement (psycopg2 style inside query OR connect_args)
-        # We'll put it in query and also in connect_args for double safety
-        query = dict(u.query)
-        query["sslmode"] = "require"
-        u = u.set(query=query)
+        # 4. Use the provided hostname (usually the IPv4 pooler)
+        # We ensure it's on the standard port 5432 for maximum compatibility
+        u = u.set(port=u.port or 5432)
         
+        # 5. Connect Args for SSL and Timout
         DATABASE_URL = str(u)
-        print(f"DATABASE_URL successfully rebuilt and sanitized.")
+        print(f"DATABASE_URL prepared for standard IPv4 connection.")
     except Exception as e:
-        print(f"Error robustly parsing/rebuilding DATABASE_URL: {e}")
-        # Very simple fallback if all else fails
+        print(f"Error preparing DATABASE_URL: {e}")
+        # Final fallback
         if DATABASE_URL.startswith("postgres://"):
             DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
