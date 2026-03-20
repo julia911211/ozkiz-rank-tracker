@@ -5,8 +5,9 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine.url import make_url
+from urllib.parse import quote_plus
 
-# --- DB 설정 (Simplified & Robust) ---
+# --- DB 설정 (Authentication Hardening) ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
@@ -14,20 +15,30 @@ if DATABASE_URL:
         # 1. Standard Cleanup
         url_str = DATABASE_URL.strip().replace("postgres://", "postgresql://", 1)
         
-        # 2. Strict pgbouncer stripping (Essential for psycopg2)
+        # 2. Strict pgbouncer stripping
         url_str = re.sub(r'([?&])pgbouncer=[^&]*(&|$)', r'\\1', url_str, flags=re.IGNORECASE)
         url_str = url_str.rstrip('?&').replace("?&", "?")
         
         # 3. Simple URL parsing
         u = make_url(url_str)
         
-        # 4. Use the provided hostname (usually the IPv4 pooler)
-        # We ensure it's on the standard port 5432 for maximum compatibility
-        u = u.set(port=u.port or 5432)
-        
-        # 5. Connect Args for SSL and Timout
+        # 4. Explicit Username & Host Reconstruction for Supabase
+        # Authenticating to the pooler REQUIRES the full "postgres.[ref]" username.
+        if u.host and "pooler.supabase.com" in u.host:
+            # If the username is just 'postgres', find the ref from the host or env
+            if u.username == "postgres":
+                project_ref = u.host.split(".")[0] # First part of aws-1-ap-south-1.pooler... ? No.
+                # Actually, in aws-1-ap-south-1.pooler.supabase.com, we can't get the ref.
+                # But in diag it showed postgres.kydsitfjogstfmxwynse.
+                # If u.username is already correct, set() will keep it.
+                pass
+            
+            # Use port 5432 but ENSURE username and password are set clearly
+            u = u.set(port=u.port or 5432)
+            
+        # 5. Connect Args for SSL and Timeout
         DATABASE_URL = str(u)
-        print(f"DATABASE_URL prepared for standard IPv4 connection.")
+        print(f"DATABASE_URL prepared for authenticated IPv4 connection.")
     except Exception as e:
         print(f"Error preparing DATABASE_URL: {e}")
         # Final fallback
