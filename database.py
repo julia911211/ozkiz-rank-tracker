@@ -22,12 +22,13 @@ if DATABASE_URL:
         # 3. Final URL normalization
         u = make_url(url_str)
         
-        # For Supabase poolers, ensure we have sslmode=require
-        query = dict(u.query)
-        if "sslmode" not in query:
-            query["sslmode"] = "require"
-        u = u.set(query=query)
+        # 4. FORCE Port 6543 for Supabase Pooler (Transaction Mode)
+        # Port 5432 is timing out; 6543 is often more stable and bypasses session limits.
+        if u.host and "pooler.supabase.com" in u.host:
+            u = u.set(port=6543)
+            print("FORCED PORT 6543 for Supabase Pooler.")
         
+        # 5. Connect Args for SSL and Timeout
         DATABASE_URL = str(u)
         print(f"DATABASE_URL successfully sanitized.")
     except Exception as e:
@@ -43,9 +44,8 @@ if not DATABASE_URL:
 # PostgreSQL-specific connection optimization
 connect_args = {}
 if DATABASE_URL and "postgresql" in DATABASE_URL:
-    # sslmode will be handled in connect_args below
-    
-    # 30s timeout is more reasonable for cross-region
+    # sslmode=require is mandatory for Supabase
+    # connect_timeout=30 for cross-region stability
     connect_args = {
         "sslmode": "require",
         "connect_timeout": 30, 
@@ -55,6 +55,7 @@ if DATABASE_URL and "postgresql" in DATABASE_URL:
         "keepalives_count": 5,
         "options": "-c idle_in_transaction_session_timeout=30000" # 30s
     }
+    print("PostgreSQL connection args optimized for stability.")
     print("PostgreSQL connection args set with FAST FAIL timeout=10s")
 elif DATABASE_URL and DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
